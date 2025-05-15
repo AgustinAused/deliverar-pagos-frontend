@@ -21,7 +21,7 @@ A modern React application for managing cryptocurrency payments and rewards in a
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/crypto-payment-platform.git
+git clone https://github.com/yourusername/deliverar-frontend.git
 cd crypto-payment-platform
 ```
 
@@ -88,24 +88,4 @@ To contribute to this project:
 2. Make your changes
 3. Submit a pull request
 
-## Testing
 
-Run the test suite:
-
-```bash
-npm test
-```
-
-## Building for Production
-
-Create a production build:
-
-```bash
-npm run build
-```
-
-The build artifacts will be stored in the `build/` directory.
-
-## License
-
-MIT
