@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import styled from '@emotion/styled';
 
 // Pages
-import DeliveryRewards from './pages/DeliveryRewards';
 import AdminDashboard from './pages/AdminDashboard';
 import Dashboard from './pages/Dashboard';
 import TransactionHistory from './pages/TransactionHistory';
@@ -44,14 +43,12 @@ function App() {
           <Nav>
             <Link to="/">Dashboard</Link>
             <Link to="/transactions">Transacciones</Link>
-            <Link to="/delivery/rewards">Recompensas</Link>
             <Link to="/admin">Admin</Link>
           </Nav>
         </Header>
         <MainContent>
           <Routes>
             <Route path="/transactions" element={<TransactionHistory />} />
-            <Route path="/delivery/rewards" element={<DeliveryRewards />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/" element={<Dashboard />} />
           </Routes>
