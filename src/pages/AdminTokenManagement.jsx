@@ -45,8 +45,8 @@ const AdminTokenManagement = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [totalSupply, setTotalSupply] = useState<string | null>(null);
-  const [adminBalance, setAdminBalance] = useState<string | null>(null);
+  const [totalSupply, setTotalSupply] = useState(null);
+  const [adminBalance, setAdminBalance] = useState(null);
 
   useEffect(() => {
     loadStats();
@@ -64,7 +64,7 @@ const AdminTokenManagement = () => {
         const balance = await web3Service.getBalance(address);
         setAdminBalance(balance);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error cargando estadísticas:', err);
     }
   };
@@ -88,7 +88,7 @@ const AdminTokenManagement = () => {
       setMintAddress('');
       setMintAmount('');
       await loadStats();
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || 'Error al mintear tokens');
     } finally {
       setLoading(false);
@@ -109,7 +109,7 @@ const AdminTokenManagement = () => {
       setSuccess(`Tokens quemados exitosamente. Hash: ${tx.hash}`);
       setBurnAmount('');
       await loadStats();
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message || 'Error al quemar tokens');
     } finally {
       setLoading(false);

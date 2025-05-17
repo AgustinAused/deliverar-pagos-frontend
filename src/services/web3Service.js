@@ -26,11 +26,13 @@ const API_URL = "TU_URL_API";
 const SEPOLIA_CHAIN_ID = '0xaa36a7';
 
 class Web3Service {
-  private provider: ethers.BrowserProvider | null = null;
-  private signer: ethers.JsonRpcSigner | null = null;
-  private contract: ethers.Contract | null = null;
+  constructor() {
+    this.provider = null;
+    this.signer = null;
+    this.contract = null;
+  }
 
-  isMetaMaskInstalled(): boolean {
+  isMetaMaskInstalled() {
     return (
       typeof window !== 'undefined' &&
       window.ethereum !== undefined &&
@@ -54,7 +56,7 @@ class Web3Service {
       }
 
       // Inicializar el provider
-      this.provider = new ethers.BrowserProvider(window.ethereum as ethers.Eip1193Provider);
+      this.provider = new ethers.BrowserProvider(window.ethereum);
       
       // Obtener el signer
       this.signer = await this.provider.getSigner();
@@ -73,17 +75,17 @@ class Web3Service {
     }
   }
 
-  private async checkAndSwitchNetwork() {
+  async checkAndSwitchNetwork() {
     try {
       // Intentar cambiar a la red Sepolia
-      await window.ethereum!.request({
+      await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: SEPOLIA_CHAIN_ID }],
       });
-    } catch (switchError: any) {
+    } catch (switchError) {
       // Si la red no está agregada, la agregamos
       if (switchError.code === 4902) {
-        await window.ethereum!.request({
+        await window.ethereum.request({
           method: 'wallet_addEthereumChain',
           params: [{
             chainId: SEPOLIA_CHAIN_ID,
@@ -103,14 +105,14 @@ class Web3Service {
     }
   }
 
-  async connectWallet(): Promise<string> {
+  async connectWallet() {
     if (!this.isMetaMaskInstalled()) {
       throw new Error('MetaMask no está instalado o no está activo en este navegador');
     }
 
     try {
       // Solicitar acceso a la cuenta - esto abrirá el popup de MetaMask
-      const accounts = await window.ethereum!.request({
+      const accounts = await window.ethereum.request({
         method: 'eth_requestAccounts'  // Este método abre el popup de MetaMask
       });
 
@@ -122,7 +124,7 @@ class Web3Service {
       await this.saveWalletAddress(accounts[0]);
 
       return accounts[0];
-    } catch (error: any) {
+    } catch (error) {
       // Manejar el caso en que el usuario rechaza la conexión
       if (error.code === 4001) {
         throw new Error('Por favor conecta tu wallet de MetaMask para continuar');
@@ -132,7 +134,7 @@ class Web3Service {
     }
   }
 
-  async saveWalletAddress(address: string): Promise<void> {
+  async saveWalletAddress(address) {
     try {
       const response = await fetch(`${API_URL}/wallet`, {
         method: 'POST',
@@ -151,7 +153,7 @@ class Web3Service {
     }
   }
 
-  async transfer(toAddress: string, amount: string): Promise<ethers.TransactionResponse> {
+  async transfer(toAddress, amount) {
     if (!this.contract || !this.signer) {
       throw new Error('Web3 no está inicializado');
     }
@@ -176,7 +178,7 @@ class Web3Service {
     }
   }
 
-  async mint(toAddress: string, amount: string): Promise<ethers.TransactionResponse> {
+  async mint(toAddress, amount) {
     if (!this.contract || !this.signer) {
       throw new Error('Web3 no está inicializado');
     }
@@ -193,7 +195,7 @@ class Web3Service {
     }
   }
 
-  async burn(amount: string): Promise<ethers.TransactionResponse> {
+  async burn(amount) {
     if (!this.contract || !this.signer) {
       throw new Error('Web3 no está inicializado');
     }
@@ -202,8 +204,11 @@ class Web3Service {
       const parsedAmount = ethers.parseUnits(amount, 18);
       const tx = await this.contract.burn(parsedAmount);
       await tx.wait();
-      const address = await this.signer.getAddress();
-      await this.saveTransaction(tx.hash, address, amount, 'burn');
+      const signer = await this.getSigner();
+      if (signer) {
+        const address = await signer.getAddress();
+        await this.saveTransaction(tx.hash, address, amount, 'burn');
+      }
       return tx;
     } catch (error) {
       console.error('Error en el burn:', error);
@@ -211,26 +216,21 @@ class Web3Service {
     }
   }
 
-  async getTotalSupply(): Promise<string> {
+  async getTotalSupply() {
     if (!this.contract) {
       throw new Error('Web3 no está inicializado');
     }
 
     try {
-      const supply = await this.contract.totalSupply();
-      return ethers.formatUnits(supply, 18);
+      const totalSupply = await this.contract.totalSupply();
+      return ethers.formatUnits(totalSupply, 18);
     } catch (error) {
       console.error('Error obteniendo el total supply:', error);
       throw error;
     }
   }
 
-  async saveTransaction(
-    txHash: string, 
-    toAddress: string, 
-    amount: string, 
-    type: 'transfer' | 'mint' | 'burn'
-  ): Promise<void> {
+  async saveTransaction(txHash, toAddress, amount, type) {
     try {
       const response = await fetch(`${API_URL}/transactions`, {
         method: 'POST',
@@ -241,9 +241,7 @@ class Web3Service {
           txHash,
           toAddress,
           amount,
-          type,
-          fromAddress: await this.signer?.getAddress(),
-          network: 'sepolia'
+          type
         }),
       });
 
@@ -256,7 +254,7 @@ class Web3Service {
     }
   }
 
-  async getBalance(address: string): Promise<string> {
+  async getBalance(address) {
     if (!this.contract) {
       throw new Error('Web3 no está inicializado');
     }
@@ -270,42 +268,44 @@ class Web3Service {
     }
   }
 
-  listenToTransfers(callback: (from: string, to: string, value: string, type: string) => void) {
+  listenToTransfers(callback) {
     if (!this.contract) {
       throw new Error('Web3 no está inicializado');
     }
 
-    // Escuchar eventos de Transfer
-    this.contract.on("Transfer", (from, to, value, event) => {
-      callback(from, to, ethers.formatUnits(value, 18), 'transfer');
+    // Escuchar eventos de transferencia
+    this.contract.on('Transfer', (from, to, value) => {
+      const formattedValue = ethers.formatUnits(value, 18);
+      callback(from, to, formattedValue, 'transfer');
     });
 
-    // Escuchar eventos de Mint
-    this.contract.on("Mint", (to, value, event) => {
-      callback('0x0', to, ethers.formatUnits(value, 18), 'mint');
+    // Escuchar eventos de mint
+    this.contract.on('Mint', (to, value) => {
+      const formattedValue = ethers.formatUnits(value, 18);
+      callback('0x0', to, formattedValue, 'mint');
     });
 
-    // Escuchar eventos de Burn
-    this.contract.on("Burn", (from, value, event) => {
-      callback(from, '0x0', ethers.formatUnits(value, 18), 'burn');
+    // Escuchar eventos de burn
+    this.contract.on('Burn', (from, value) => {
+      const formattedValue = ethers.formatUnits(value, 18);
+      callback(from, '0x0', formattedValue, 'burn');
     });
   }
 
-  async getSigner(): Promise<ethers.JsonRpcSigner | null> {
-    if (!this.signer) {
-      await this.initialize();
+  async getSigner() {
+    if (!this.provider) {
+      return null;
     }
-    return this.signer;
-  }
-
-  isValidAddress(address: string): boolean {
     try {
-      return ethers.isAddress(address);
+      return await this.provider.getSigner();
     } catch (error) {
-      return false;
+      return null;
     }
+  }
+
+  isValidAddress(address) {
+    return ethers.isAddress(address);
   }
 }
 
-export const web3Service = new Web3Service();
-export default web3Service; 
+export default new Web3Service(); 

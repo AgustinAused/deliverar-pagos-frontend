@@ -14,15 +14,20 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Grid
+  Grid,
+  Alert,
+  CircularProgress
 } from '@mui/material';
 import {
   TrendingUp,
   Group,
   AccountBalance,
   Download as DownloadIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Add as AddIcon,
+  Remove as RemoveIcon
 } from '@mui/icons-material';
+import web3Service from '../services/web3Service';
 
 const StyledCard = styled(Card)`
   padding: 2rem;
@@ -53,8 +58,24 @@ const SearchContainer = styled(Box)`
   margin: 2rem 0;
 `;
 
+const TokenActionCard = styled(Paper)`
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+`;
+
+const ActionContainer = styled(Box)`
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 1rem;
+`;
+
 const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [tokenAmount, setTokenAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   // Mock data - would come from API/blockchain
   const kpiData = {
@@ -101,6 +122,48 @@ const AdminDashboard = () => {
   const handleSearch = () => {
     // Implementation for searching transactions
     console.log('Searching:', searchQuery);
+  };
+
+  const handleMint = async () => {
+    if (!tokenAmount || isNaN(Number(tokenAmount)) || Number(tokenAmount) <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await web3Service.mint(tokenAmount);
+      setSuccess(`Successfully minted ${tokenAmount} tokens`);
+      setTokenAmount('');
+    } catch (err) {
+      setError(err.message || 'Error minting tokens');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBurn = async () => {
+    if (!tokenAmount || isNaN(Number(tokenAmount)) || Number(tokenAmount) <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      await web3Service.burn(tokenAmount);
+      setSuccess(`Successfully burned ${tokenAmount} tokens`);
+      setTokenAmount('');
+    } catch (err) {
+      setError(err.message || 'Error burning tokens');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -158,6 +221,50 @@ const AdminDashboard = () => {
           </KPICard>
         </Grid>
       </Grid>
+
+      <TokenActionCard elevation={2}>
+        <Typography variant="h6" gutterBottom>
+          Token Management
+        </Typography>
+        <ActionContainer>
+          <TextField
+            label="Token Amount"
+            type="number"
+            value={tokenAmount}
+            onChange={(e) => setTokenAmount(e.target.value)}
+            placeholder="Enter amount"
+            fullWidth
+          />
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleMint}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
+          >
+            Mint
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleBurn}
+            disabled={loading}
+            startIcon={loading ? <CircularProgress size={20} /> : <RemoveIcon />}
+          >
+            Burn
+          </Button>
+        </ActionContainer>
+        {error && (
+          <Alert severity="error" sx={{ mt: 2 }}>
+            {error}
+          </Alert>
+        )}
+        {success && (
+          <Alert severity="success" sx={{ mt: 2 }}>
+            {success}
+          </Alert>
+        )}
+      </TokenActionCard>
 
       <SearchContainer>
         <TextField

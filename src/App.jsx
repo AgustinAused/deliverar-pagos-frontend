@@ -3,13 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import styled from '@emotion/styled';
 
 // Pages
-import WalletRegistration from './pages/WalletRegistration';
-import WalletBalance from './pages/WalletBalance';
-import PaymentConfirmation from './pages/PaymentConfirmation';
 import DeliveryRewards from './pages/DeliveryRewards';
-import TransactionHistory from './pages/TransactionHistory';
 import AdminDashboard from './pages/AdminDashboard';
-import Payments from './pages/Payments';
+import Dashboard from './pages/Dashboard';
+import TransactionHistory from './pages/TransactionHistory';
 
 const AppContainer = styled.div`
   min-height: 100vh;
@@ -36,8 +33,6 @@ const Nav = styled.nav`
 `;
 
 const MainContent = styled.main`
-  max-width: 1200px;
-  margin: 2rem auto;
   padding: 0 1rem;
 `;
 
@@ -47,25 +42,18 @@ function App() {
       <AppContainer>
         <Header>
           <Nav>
-            <Link to="/wallet/register">Registrar Wallet</Link>
-            <Link to="/wallet/balance">Balance</Link>
-            <Link to="/payments">Pagos</Link>
-            <Link to="/payment/confirm">Confirmar Pago</Link>
+            <Link to="/">Dashboard</Link>
+            <Link to="/transactions">Transacciones</Link>
             <Link to="/delivery/rewards">Recompensas</Link>
-            <Link to="/transactions">Historial</Link>
             <Link to="/admin">Admin</Link>
           </Nav>
         </Header>
         <MainContent>
           <Routes>
-            <Route path="/wallet/register" element={<WalletRegistration />} />
-            <Route path="/wallet/balance" element={<WalletBalance />} />
-            <Route path="/payments" element={<Payments />} />
-            <Route path="/payment/confirm" element={<PaymentConfirmation />} />
-            <Route path="/delivery/rewards" element={<DeliveryRewards />} />
             <Route path="/transactions" element={<TransactionHistory />} />
+            <Route path="/delivery/rewards" element={<DeliveryRewards />} />
             <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/" element={<WalletBalance />} />
+            <Route path="/" element={<Dashboard />} />
           </Routes>
         </MainContent>
       </AppContainer>
@@ -73,4 +61,4 @@ function App() {
   );
 }
 
-export default App;
+export default App; 
