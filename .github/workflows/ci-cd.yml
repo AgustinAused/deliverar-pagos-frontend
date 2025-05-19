@@ -2,48 +2,37 @@ name: Deploy Frontend to EC2
 
 on:
   push:
-    branches:
-      - main
+    branches: main
   workflow_dispatch:
 
-jobs:                         
+jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+      - name: Use Node.js 16
         uses: actions/setup-node@v3
         with:
           node-version: '16'
 
-      - name: Install dependencies
-        run: npm ci
-
       - name: Build project
-        env:
-          CI: false
-          API_URL: ${{ secrets.API_URL }}
-          TOKEN_CONTRACT_ADDRESS: ${{ secrets.TOKEN_CONTRACT_ADDRESS }}
-        run: npm run build
+        run: |
+          npm ci
+          npm run build
 
-
-      - name: Archive build artifacts
-        run: zip -r build.zip build
-
-      - name: Copy build to EC2 via SCP
+      - name: Copy build folder to EC2
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "build.zip"
-          target: "/home/${{ secrets.EC2_USER }}"
+          source: "build/"
+          target: "/home/${{ secrets.EC2_USER }}/build/"
+          recursive: true
 
-
-      - name: Deploy and run 'serve'
+      - name: Deploy and serve on EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -52,18 +41,29 @@ jobs:
           script: |
             cd /home/${{ secrets.EC2_USER }}
 
-            # 2) Instalar 'serve' globalmente sin sudo
-            npm install -g serve
+            # 1) Detener Apache (liberamos el puerto 80)
+            sudo systemctl stop httpd || true
 
-            # 3) Desplegar el build
-            rm -rf build
-            unzip -o build.zip -d build
+            # 2) Cargar NVM y usar Node 16
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            nvm install 16
+            nvm use 16
 
-            # 4) Parar procesos previos de 'serve'
+            # 3) Instalar serve si falta
+            if ! command -v serve >/dev/null; then
+              npm install -g serve
+            fi
+
+            # 4) Detener procesos previos de serve
             pkill -f "serve -s build" || true
 
-            # 5) Arrancar el servidor estático en background
-            nohup serve -s build -l 80 > serve.log 2>&1 &
+            # 5) Arrancar serve en puerto 80
+            sudo env "PATH=$HOME/.nvm/versions/node/v16.0.0/bin:$PATH" \
+                  nohup serve -s build/build -l 80 > serve.log 2>&1 &
 
-            # 6) Verificar que se levantó
+
+            # 6) Confirmar
+            echo "Frontend corriendo:"
             pgrep -fl "serve -s build"
+
