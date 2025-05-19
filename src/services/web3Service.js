@@ -17,10 +17,10 @@ const TOKEN_ABI = [
 ];
 
 // Dirección del contrato en Sepolia (reemplazar con tu dirección)
-const TOKEN_CONTRACT_ADDRESS = "TU_DIRECCION_DEL_CONTRATO";
+const TOKEN_CONTRACT_ADDRESS = process.env.TOKEN_CONTRACT_ADDRESS;
 
 // URL de tu API backend
-const API_URL = "TU_URL_API";
+const API_URL = process.env.API_URL;
 
 // Chain ID de Sepolia
 const SEPOLIA_CHAIN_ID = '0xaa36a7';
