@@ -64,7 +64,7 @@ jobs:
 
             # 5) Arrancar serve en puerto 80
             sudo env "PATH=$HOME/.nvm/versions/node/v16.0.0/bin:$PATH" \
-                  nohup serve -s build/build -l 80 > serve.log 2>&1 &
+                nohup serve -s build/build -l 80 > serve.log 2>&1 < /dev/null &
 
 
             # 6) Confirmar
