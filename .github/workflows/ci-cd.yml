@@ -3,10 +3,10 @@ name: Deploy Frontend to EC2
 on:
   push:
     branches:
-      - front
+      - main
   workflow_dispatch:
 
-jobs:                         # <— aquí desempata con on:
+jobs:                         
   build-and-deploy:
     runs-on: ubuntu-latest
 
