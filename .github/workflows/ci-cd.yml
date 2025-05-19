@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
+    - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
@@ -40,7 +40,7 @@ jobs:
           source: "frontend/build.zip"
           target: "/home/${{ secrets.EC2_USER }}"
 
-      - name: Deploy and start with PM2
+      - name: Deploy build on Apache
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -48,8 +48,11 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/${{ secrets.EC2_USER }}
-            unzip -o build.zip -d /var/www/static
-            # Stop existing PM2 process if any
-            pm2 delete frontend || true
-            # Serve new build on port 80
-            pm2 serve /var/www/static 80 --name frontend --no-daemon  
+            # Descomprimir build en el directorio de Apache
+            sudo rm -rf /var/www/html/*
+            sudo unzip -o build.zip -d /var/www/html
+            # Ajustar permisos
+            sudo chown -R apache:apache /var/www/html
+            # Reiniciar Apache para refrescar contenido
+            sudo systemctl restart httpd
+            sudo systemctl status httpd --no-pager
