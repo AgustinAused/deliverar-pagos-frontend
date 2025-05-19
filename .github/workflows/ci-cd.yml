@@ -51,13 +51,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/${{ secrets.EC2_USER }}
-            cd /home/${{ secrets.EC2_USER }}
-
-            # 1) Instalar Node.js 16.x vía Amazon Linux Extras (glibc-compatible)
-            sudo amazon-linux-extras enable epel
-            sudo amazon-linux-extras enable nodejs14
-            sudo yum clean metadata
-            sudo yum install -y nodejs
 
             # 2) Instalar 'serve' globalmente sin sudo
             npm install -g serve
