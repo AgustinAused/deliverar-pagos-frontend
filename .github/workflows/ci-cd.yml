@@ -60,7 +60,7 @@ jobs:
             fi
 
             # 4) Detener procesos previos de serve
-            pkill -f "serve -s build" || true
+            sudo pkill -f "serve -s build" || true
 
             # 5) Arrancar serve en puerto 80
             sudo env "PATH=$HOME/.nvm/versions/node/v16.0.0/bin:$PATH" \
