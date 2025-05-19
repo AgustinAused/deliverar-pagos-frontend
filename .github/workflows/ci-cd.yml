@@ -58,7 +58,7 @@ jobs:
               nvm install 18
             fi
             if ! command -v serve >/dev/null; then
-              nvm install -g serve
+              npm install -g serve
             fi
 
             # Prepare build folder
