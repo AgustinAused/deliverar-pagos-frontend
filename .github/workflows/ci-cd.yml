@@ -1,0 +1,55 @@
+name: Deploy Frontend to EC2
+
+on:
+  push:
+    branches:
+      - front
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./frontend
+
+      - name: Build project
+        run: npm run build
+        working-directory: ./frontend
+
+      - name: Archive build artifacts
+        run: zip -r build.zip build
+        working-directory: ./frontend
+
+      - name: Copy build to EC2 via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "frontend/build.zip"
+          target: "/home/${{ secrets.EC2_USER }}"
+
+      - name: Deploy and start with PM2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/${{ secrets.EC2_USER }}
+            unzip -o build.zip -d /var/www/static
+            # Stop existing PM2 process if any
+            pm2 delete frontend || true
+            # Serve new build on port 80
+            pm2 serve /var/www/static 80 --name frontend --no-daemon  
