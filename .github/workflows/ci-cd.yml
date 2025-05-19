@@ -18,8 +18,11 @@ jobs:
           node-version: '16'
 
       - name: Build project
+        env:
+          CI: false
+          API_URL: ${{ secrets.API_URL }}
+          TOKEN_CONTRACT_ADDRESS: ${{ secrets.TOKEN_CONTRACT_ADDRESS }}
         run: |
-          npm ci
           npm run build
 
       - name: Copy build folder to EC2
