@@ -6,53 +6,50 @@ on:
       - front
   workflow_dispatch:
 
-  jobs:
-    build-and-deploy:
-      runs-on: ubuntu-latest
+jobs:                         # <— aquí desempata con on:
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Checkout repo
-          uses: actions/checkout@v3
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
-        - name: Set up Node.js
-          uses: actions/setup-node@v3
-          with:
-            node-version: '18'
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
 
-        - name: Install dependencies
-          run: npm ci
-          working-directory: ./frontend
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./frontend
 
-        - name: Build project
-          run: npm run build
-          working-directory: ./frontend
+      - name: Build project
+        run: npm run build
+        working-directory: ./frontend
 
-        - name: Archive build artifacts
-          run: zip -r build.zip build
-          working-directory: ./frontend
+      - name: Archive build artifacts
+        run: zip -r build.zip build
+        working-directory: ./frontend
 
-        - name: Copy build to EC2 via SCP
-          uses: appleboy/scp-action@master
-          with:
-            host: ${{ secrets.EC2_HOST }}
-            username: ${{ secrets.EC2_USER }}
-            key: ${{ secrets.EC2_SSH_KEY }}
-            source: "frontend/build.zip"
-            target: "/home/${{ secrets.EC2_USER }}"
+      - name: Copy build to EC2 via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "frontend/build.zip"
+          target: "/home/${{ secrets.EC2_USER }}"
 
-        - name: Deploy build on Apache
-          uses: appleboy/ssh-action@master
-          with:
-            host: ${{ secrets.EC2_HOST }}
-            username: ${{ secrets.EC2_USER }}
-            key: ${{ secrets.EC2_SSH_KEY }}
-            script: |
-              cd /home/${{ secrets.EC2_USER }}
-              # Descomprimir build en el directorio de Apache
-              sudo rm -rf /var/www/html/*
-              sudo unzip -o build.zip -d /var/www/html
-              # Ajustar permisos
-              sudo chown -R apache:apache /var/www/html
-              # Reiniciar Apache para refrescar contenido
-              sudo systemctl restart httpd
-              sudo systemctl status httpd --no-pager
+      - name: Deploy build on Apache
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/${{ secrets.EC2_USER }}
+            sudo rm -rf /var/www/html/*
+            sudo unzip -o build.zip -d /var/www/html
+            sudo chown -R apache:apache /var/www/html
+            sudo systemctl restart httpd
+            sudo systemctl status httpd --no-pager
