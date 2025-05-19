@@ -24,6 +24,7 @@ jobs:
 
       - name: Build project
         env:
+          CI: false
           API_URL: ${{ secrets.API_URL }}
           TOKEN_CONTRACT_ADDRESS: ${{ secrets.TOKEN_CONTRACT_ADDRESS }}
         run: npm run build
