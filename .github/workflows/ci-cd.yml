@@ -42,16 +42,16 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-        script: |
-          # (Opcional) Si modificaste el unit file, recarga systemd:
-          # sudo systemctl daemon-reload
+          script: |
+            # (Opcional) Si modificaste el unit file, recarga systemd:
+            # sudo systemctl daemon-reload
 
-          # Asegúrate de que la carpeta build existe
-          ls -la /home/${{ secrets.EC2_USER }}/build
+            # Asegúrate de que la carpeta build existe
+            ls -la /home/${{ secrets.EC2_USER }}/build
 
-          # Reinicia el servicio para que use la nueva build
-          sudo systemctl restart frontend.service
+            # Reinicia el servicio para que use la nueva build
+            sudo systemctl restart frontend.service
 
-          # Muestra estado para depuración
-          sudo systemctl status frontend.service --no-pager
+            # Muestra estado para depuración
+            sudo systemctl status frontend.service --no-pager
 
