@@ -42,7 +42,8 @@ jobs:
           source: "build.zip"
           target: "/home/${{ secrets.EC2_USER }}"
 
-      - name: Deploy build on Apache
+
+      - name: Deploy and run 'serve'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -50,8 +51,24 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/${{ secrets.EC2_USER }}
-            sudo rm -rf /var/www/html/*
-            sudo unzip -o build.zip -d /var/www/html
-            sudo chown -R apache:apache /var/www/html
-            sudo systemctl restart httpd
-            sudo systemctl status httpd --no-pager
+            # Ensure Node and 'serve' installed
+            if ! command -v node >/dev/null; then
+              curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+              sudo yum install -y nodejs
+            fi
+            if ! command -v serve >/dev/null; then
+              sudo npm install -g serve
+            fi
+
+            # Prepare build folder
+            rm -rf build
+            unzip -o build.zip -d build
+
+            # Stop any existing 'serve' process
+            pkill -f "serve -s build" || true
+
+            # Launch static server in background
+            nohup serve -s build -l 80 > serve.log 2>&1 &
+
+            # Verify
+            pgrep -fl "serve -s build"
