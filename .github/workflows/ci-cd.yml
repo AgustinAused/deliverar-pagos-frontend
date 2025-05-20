@@ -42,28 +42,16 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd /home/${{ secrets.EC2_USER }}
+        script: |
+          # (Opcional) Si modificaste el unit file, recarga systemd:
+          # sudo systemctl daemon-reload
 
-            # 2) Cargar NVM y usar Node 16
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            nvm use 16
+          # Asegúrate de que la carpeta build existe
+          ls -la /home/${{ secrets.EC2_USER }}/build
 
-            # 3) Instalar serve si falta
-            if ! command -v serve >/dev/null; then
-              npm install -g serve
-            fi
+          # Reinicia el servicio para que use la nueva build
+          sudo systemctl restart frontend.service
 
-            # 4) Detener procesos previos de serve
-            pkill -f "serve -s build" || true
-
-            # 5) Arrancar serve en puerto 80
-            sudo env "PATH=$HOME/.nvm/versions/node/v16.0.0/bin:$PATH" \
-                  nohup serve -s build/build -l 80 > serve.log 2>&1 &
-
-
-            # 6) Confirmar
-            echo "Frontend corriendo:"
-            pgrep -fl "serve -s build"
+          # Muestra estado para depuración
+          sudo systemctl status frontend.service --no-pager
 
