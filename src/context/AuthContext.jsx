@@ -31,7 +31,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     isAuthenticated: !!user,
-    hasRole: (role) => user?.role === role,
+    hasRole: (role) => user?.role?.toLowerCase() === role.toLowerCase(),
   };
 
   return (
