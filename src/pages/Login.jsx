@@ -37,9 +37,10 @@ const Login = () => {
 
     try {
       const response = await login(formData.email, formData.password);
+      console.log('Login response:', response);
       
       // Redirect based on role
-      switch (response.role) {
+      switch (response.role?.toLowerCase()) {
         case 'admin':
           navigate('/admin-dashboard');
           break;
@@ -50,9 +51,11 @@ const Login = () => {
           navigate('/dashboard');
           break;
         default:
+          console.log('Unknown role:', response.role);
           navigate('/dashboard');
       }
     } catch (err) {
+      console.error('Login error:', err);
       setError(err.message || 'Failed to login');
     } finally {
       setLoading(false);

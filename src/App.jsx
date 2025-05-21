@@ -10,6 +10,7 @@ import Register from './pages/Register';
 import AdminDashboard from './pages/AdminDashboard';
 import Dashboard from './pages/Dashboard';
 import TransactionHistory from './pages/TransactionHistory';
+import Unauthorized from './pages/Unauthorized';
 
 const AppContainer = styled.div`
   min-height: 100vh;
@@ -71,6 +72,7 @@ function App() {
               {/* Public routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/unauthorized" element={<Unauthorized />} />
 
               {/* Protected routes */}
               <Route

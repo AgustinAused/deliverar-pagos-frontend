@@ -4,7 +4,6 @@ const API_URL = process.env.REACT_APP_API_URL;
 const AUTH_LOGIN = '/api/auth/login';
 const AUTH_LOGOUT = '/api/auth/logout';
 const AUTH_REFRESH = '/api/auth/refresh';
-
 // Configure axios defaults
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Accept'] = 'application/json';
