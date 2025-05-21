@@ -47,6 +47,7 @@ const Login = () => {
         case 'auditor':
           navigate('/transaction-history');
           break;
+        case 'user':
         case 'core':
           navigate('/dashboard');
           break;
