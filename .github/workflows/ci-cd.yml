@@ -20,11 +20,30 @@ jobs:
       - name: Build project
         env:
           CI: false
-          API_URL: ${{ secrets.API_URL }}
+          REACT_APP_API_URL: ${{ secrets.API_URL }}
           TOKEN_CONTRACT_ADDRESS: ${{ secrets.TOKEN_CONTRACT_ADDRESS }}
         run: |
           npm ci
           npm run build
+
+      - name: Generar archivo .env
+        run: |
+          rm -rf .env  # 👈 fuerza que sea archivo
+          cat <<EOF > .env
+          REACT_APP_API_URL=${{ secrets.API_URL }}
+          TOKEN_CONTRACT_ADDRESS=${{ secrets.TOKEN_CONTRACT_ADDRESS }}
+          EOF
+          ls -la .env
+
+      - name: Subir archivo .env a EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: ".env"
+          target: "/home/ec2-user/"
+          overwrite: true
 
       - name: Copy build folder to EC2
         uses: appleboy/scp-action@master
@@ -34,7 +53,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "build/"
           target: "/home/${{ secrets.EC2_USER }}/build/"
-          recursive: true
 
       - name: Restart frontend.service on EC2
         uses: appleboy/ssh-action@master
