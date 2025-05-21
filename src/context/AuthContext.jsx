@@ -17,8 +17,14 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const response = await authService.login(email, password);
-    setUser(response);
-    return response;
+    // TEMP: Hardcode ownerId for core users for testing
+    if (response.role?.toLowerCase() === 'core') {
+      setUser({ ...response, ownerId: 'e564456a-2590-4ec8-bcb7-77bcd9dba05b' });
+      return { ...response, ownerId: 'e564456a-2590-4ec8-bcb7-77bcd9dba05b' };
+    } else {
+      setUser(response);
+      return response;
+    }
   };
 
   const logout = () => {

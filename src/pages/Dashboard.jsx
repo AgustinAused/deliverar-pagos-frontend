@@ -31,6 +31,8 @@ import {
   AttachMoney as MoneyIcon
 } from '@mui/icons-material';
 import web3Service from '../services/web3Service';
+import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 
 const DashboardContainer = styled(Box)`
   padding: 2rem;
@@ -106,44 +108,29 @@ const Dashboard = () => {
   const [hash, setHash] = useState('');
 
   // Transaction History State
-  const transactions = [
-    {
-      id: 1,
-      timestamp: '2024-03-10T15:30:00',
-      type: 'payment',
-      amount: 10,
-      status: 'success',
-      hash: '0x1234...5678',
-      description: 'Payment for order #123'
-    },
-    {
-      id: 2,
-      timestamp: '2024-03-10T14:15:00',
-      type: 'reward',
-      amount: 2,
-      status: 'success',
-      hash: '0x5678...9012',
-      description: 'Delivery reward'
-    },
-    {
-      id: 3,
-      timestamp: '2024-03-10T12:45:00',
-      type: 'payment',
-      amount: 5,
-      status: 'pending',
-      hash: '0x9012...3456',
-      description: 'Payment for order #124'
-    }
-  ];
+  const { user, setUser } = useAuth();
+  const [transactions, setTransactions] = useState([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
 
   const fetchBalance = async () => {
     setBalanceLoading(true);
     setMoneyBalanceLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setBalance(Math.floor(Math.random() * 100));
-      setMoneyBalance(Math.floor(Math.random() * 1000));
-      setLastSync(new Date());
+      if (user?.role?.toLowerCase() === 'core' && user?.ownerId) {
+        const response = await axios.get(`/api/owners/${user.ownerId}/balances`, {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        });
+        console.log('Balance API response:', response.data);
+        setBalance(response.data.cryptoBalance);
+        setMoneyBalance(response.data.fiatBalance);
+        setLastSync(new Date());
+      } else {
+        // fallback for other roles or demo
+        setBalance(Math.floor(Math.random() * 100));
+        setMoneyBalance(Math.floor(Math.random() * 1000));
+      }
     } catch (error) {
       console.error('Error fetching balance:', error);
     } finally {
@@ -230,6 +217,51 @@ const Dashboard = () => {
     }
   };
 
+  // Fetch transaction history for core users
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      if (user?.role?.toLowerCase() === 'core' && user?.ownerId) {
+        setTransactionsLoading(true);
+        try {
+          const response = await axios.get(`/api/owners/${user.ownerId}/transactions`, {
+            headers: {
+              Authorization: `Bearer ${user.accessToken}`
+            }
+          });
+          console.log('Transactions API response:', response.data);
+          setTransactions(Array.isArray(response.data.transactions) ? response.data.transactions : []);
+        } catch (err) {
+          console.error('Error fetching transactions:', err);
+          setTransactions([]);
+        } finally {
+          setTransactionsLoading(false);
+        }
+      } else {
+        console.log('User is not core or missing ownerId:', user);
+      }
+    };
+    fetchTransactions();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchOwnerBalance = async () => {
+      if (user?.role?.toLowerCase() === 'core' && user?.ownerId) {
+        try {
+          const response = await axios.get(`/api/owners/${user.ownerId}/balances`, {
+            headers: {
+              Authorization: `Bearer ${user.accessToken}`
+            }
+          });
+          setBalance(response.data.cryptoBalance);
+          setMoneyBalance(response.data.fiatBalance);
+        } catch (err) {
+          console.error('Error fetching owner balance:', err);
+        }
+      }
+    };
+    fetchOwnerBalance();
+  }, [user]);
+
   useEffect(() => {
     fetchBalance();
   }, []);
@@ -261,7 +293,7 @@ const Dashboard = () => {
                   ) : (
                     <>
                       <MoneyAmount>
-                        ${moneyBalance.toFixed(2)}
+                        ${(moneyBalance ?? 0).toFixed(2)}
                       </MoneyAmount>
                       <Button
                         variant="outlined"

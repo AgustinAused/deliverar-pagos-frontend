@@ -56,6 +56,9 @@ const authService = {
           'Accept': 'application/json',
         }
       });
+    } catch (e) {
+      // Log the error but do not block logout
+      console.error('Logout network error:', e);
     } finally {
       localStorage.removeItem('user');
     }

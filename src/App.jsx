@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import styled from '@emotion/styled';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -43,11 +43,17 @@ const MainContent = styled.main`
 const Navigation = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Don't show navigation on login/register pages
   if (location.pathname === '/login' || location.pathname === '/register') {
     return null;
   }
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <Header>
@@ -55,7 +61,7 @@ const Navigation = () => {
         {user?.role === 'admin' && <Link to="/admin-dashboard">Admin Dashboard</Link>}
         {user?.role === 'auditor' && <Link to="/transaction-history">Transaction History</Link>}
         {user?.role === 'user' && <Link to="/dashboard">Dashboard</Link>}
-        <Link to="#" onClick={logout} style={{ marginLeft: 'auto' }}>Logout</Link>
+        <Link to="#" onClick={handleLogout} style={{ marginLeft: 'auto' }}>Logout</Link>
       </Nav>
     </Header>
   );

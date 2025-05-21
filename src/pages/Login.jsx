@@ -84,7 +84,7 @@ const Login = () => {
           }}
         >
           <Typography component="h1" variant="h5" gutterBottom>
-            Login
+            Modulo Cripto
           </Typography>
           {error && (
             <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
@@ -123,7 +123,7 @@ const Login = () => {
               sx={{ mt: 3, mb: 2 }}
               disabled={loading}
             >
-              {loading ? <CircularProgress size={24} /> : 'Sign In'}
+              {loading ? <CircularProgress size={24} /> : 'Log In'}
             </Button>
           </Box>
         </Paper>
