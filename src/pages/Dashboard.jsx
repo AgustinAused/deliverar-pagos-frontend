@@ -34,6 +34,7 @@ import web3Service from '../services/web3Service';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 
+
 const DashboardContainer = styled(Box)`
   padding: 2rem;
   max-width: 1400px;
@@ -90,6 +91,27 @@ const TransactionHash = styled(Typography)`
   font-size: 0.85rem;
 `;
 
+const API_URL = process.env.REACT_APP_API_URL;
+
+// Create axios instance with base URL
+const api = axios.create({
+  baseURL: API_URL,
+});
+
+// Add request interceptor to include auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 const Dashboard = () => {
   // Balance States
   const [balance, setBalance] = useState(0);
@@ -119,9 +141,8 @@ const Dashboard = () => {
     setMoneyBalanceLoading(true);
     try {
       if (user?.role?.toLowerCase() === 'core') {
-        const response = await axios.get(`/api/owners/${OWNER_ID}/balances`, {
+        const response = await api.get(`/api/owners/${OWNER_ID}/balances`, {
           headers: {
-            Authorization: `Bearer ${user.accessToken}`,
             'Cache-Control': 'no-cache'
           }
         });
@@ -140,6 +161,7 @@ const Dashboard = () => {
     }
   };
 
+  
   const handleDeposit = async () => {
     if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
       setError('Por favor ingresa un monto válido');
@@ -151,16 +173,11 @@ const Dashboard = () => {
     setSuccess('');
 
     try {
-      await axios.post(
+      await api.post(
         `/api/owners/${OWNER_ID}/fiat`,
         { 
           amount: parseFloat(depositAmount),
           operation: "INFLOW"
-        },
-        { 
-          headers: { 
-            Authorization: `Bearer ${user.accessToken}`
-          } 
         }
       );
       setSuccess(`Depósito de $${depositAmount} procesado exitosamente`);
@@ -234,13 +251,8 @@ const Dashboard = () => {
   const fetchFiatTransactions = async () => {
     setTransactionsLoading(true);
     try {
-      const response = await axios.get(
-        `https://api.blockchain.deliver.ar/api/owners/${OWNER_ID}/transactions/fiat`,
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        }
+      const response = await api.get(
+        `/api/owners/${OWNER_ID}/transactions/fiat`
       );
       setTransactions(Array.isArray(response.data.transactions) ? response.data.transactions : []);
     } catch (err) {
