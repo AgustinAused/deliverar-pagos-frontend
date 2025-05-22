@@ -27,7 +27,8 @@ const authService = {
       }, {
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
         }
       });
       
