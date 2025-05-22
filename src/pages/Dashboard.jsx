@@ -18,7 +18,8 @@ import {
   TableHead,
   TableRow,
   Chip,
-  Link
+  Link,
+  TablePagination
 } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
@@ -118,6 +119,8 @@ const Dashboard = () => {
   const { user, setUser } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(6);
 
   const OWNER_ID = 'e564456a-2590-4ec8-bcb7-77bcd9dba05b';
 
@@ -238,15 +241,42 @@ const Dashboard = () => {
     setSuccess('');
     
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const newHash = '0x' + Array(64).fill(0).map(() => 
-        Math.floor(Math.random() * 16).toString(16)).join('');
-      setHash(newHash);
+      // 1. Fetch owner email
+      const ownerRes = await api.get(
+        `/api/owners/${OWNER_ID}`,
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        }
+      );
+      const ownerEmail = ownerRes.data.email;
+      console.log('Owner email:', ownerEmail);
+      const destinationEmail = "agus@example.com";
+      console.log('Destination email:', destinationEmail);
+      const transferAmount = parseFloat(paymentAmount);
+      console.log('Transfer amount:', transferAmount);
+
+      // 2. Call transfer endpoint
+      await api.post(
+        '/api/delivercoin/transfer',
+        {
+          fromEmail: ownerEmail,
+          toEmail: destinationEmail,
+          amount: transferAmount
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        }
+      );
+
       setSuccess('¡Pago realizado exitosamente!');
       setPaymentAmount('');
       await fetchBalance(); // Refresh balance after payment
     } catch (err) {
-      setError(err.message || 'Error procesando el pago');
+      setError(err.response?.data?.message || err.message || 'Error procesando el pago');
     } finally {
       setLoading(false);
     }
@@ -535,8 +565,8 @@ const Dashboard = () => {
                 {transactionsLoading ? 'Actualizando...' : 'Refresh'}
               </Button>
             </Box>
-            <TableContainer>
-              <Table>
+            <TableContainer sx={{ maxHeight: 400 }}>
+              <Table stickyHeader>
                 <TableHead>
                   <TableRow>
                     <TableCell>Fecha</TableCell>
@@ -548,31 +578,45 @@ const Dashboard = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {transactions.map((tx) => (
-                    <TableRow key={tx.id}>
-                      <TableCell>
-                        {tx.transactionDate ? new Date(tx.transactionDate).toLocaleString() : ''}
-                      </TableCell>
-                      <TableCell>
-                        {tx.concept}
-                      </TableCell>
-                      <TableCell>
-                        {tx.owner?.name || ''}
-                      </TableCell>
-                      <TableCell align="right">
-                        {tx.amount} {tx.currency}
-                      </TableCell>
-                      <TableCell>
-                        {tx.status}
-                      </TableCell>
-                      <TableCell>
-                        {tx.id}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {transactions
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((tx) => (
+                      <TableRow key={tx.id}>
+                        <TableCell>
+                          {tx.transactionDate ? new Date(tx.transactionDate).toLocaleString() : ''}
+                        </TableCell>
+                        <TableCell>
+                          {tx.concept}
+                        </TableCell>
+                        <TableCell>
+                          {tx.owner?.name || ''}
+                        </TableCell>
+                        <TableCell align="right">
+                          {tx.amount} {tx.currency}
+                        </TableCell>
+                        <TableCell>
+                          {tx.status}
+                        </TableCell>
+                        <TableCell>
+                          {tx.id}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              component="div"
+              count={transactions.length}
+              page={page}
+              onPageChange={(e, newPage) => setPage(newPage)}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={e => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+              rowsPerPageOptions={[6, 12, 18, 50]}
+            />
           </Card>
         </Grid>
       </Grid>
