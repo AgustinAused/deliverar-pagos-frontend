@@ -16,7 +16,8 @@ import {
   Chip,
   Grid,
   Alert,
-  CircularProgress
+  CircularProgress,
+  TablePagination
 } from '@mui/material';
 import {
   TrendingUp,
@@ -81,6 +82,8 @@ const AdminDashboard = () => {
   const [transactions, setTransactions] = useState([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
   const { user } = useAuth();
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(6);
 
   // Mock data - would come from API/blockchain
   const kpiData = {
@@ -307,8 +310,8 @@ const AdminDashboard = () => {
         </Button>
       </SearchContainer>
 
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
+        <Table stickyHeader>
           <TableHead>
             <TableRow>
               <TableCell>Timestamp</TableCell>
@@ -320,7 +323,7 @@ const AdminDashboard = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredTransactions.map((tx) => (
+            {filteredTransactions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((tx) => (
               <TableRow key={tx.id}>
                 <TableCell>
                   {tx.transactionDate ? new Date(tx.transactionDate).toLocaleString() : tx.timestamp ? new Date(tx.timestamp).toLocaleString() : ''}
@@ -348,6 +351,18 @@ const AdminDashboard = () => {
           </TableBody>
         </Table>
       </TableContainer>
+      <TablePagination
+        component="div"
+        count={transactions.length}
+        page={page}
+        onPageChange={(e, newPage) => setPage(newPage)}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={e => {
+          setRowsPerPage(parseInt(e.target.value, 10));
+          setPage(0);
+        }}
+        rowsPerPageOptions={[6, 12, 18, 50]}
+      />
     </StyledCard>
   );
 };
