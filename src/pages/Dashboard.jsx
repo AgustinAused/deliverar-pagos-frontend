@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styled from '@emotion/styled';
 import {
   Box,
@@ -124,6 +124,8 @@ const Dashboard = () => {
 
   const OWNER_ID = 'e564456a-2590-4ec8-bcb7-77bcd9dba05b';
 
+  const pollingRef = useRef(null);
+
   const fetchBalance = async () => {
     setBalanceLoading(true);
     setMoneyBalanceLoading(true);
@@ -177,6 +179,7 @@ const Dashboard = () => {
       setSuccess(`Depósito de $${depositAmount} procesado exitosamente`);
       setDepositAmount('');
       await fetchBalance();
+      await fetchAllTransactions();
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Error procesando el depósito');
     } finally {
@@ -223,6 +226,7 @@ const Dashboard = () => {
       setSuccess(`Compra de ${tokenAmount} tokens procesada exitosamente`);
       setTokenAmount('');
       await fetchBalance(); // Refresh balance after purchase
+      await fetchAllTransactions();
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Error comprando tokens');
     } finally {
@@ -258,7 +262,7 @@ const Dashboard = () => {
       console.log('Transfer amount:', transferAmount);
 
       // 2. Call transfer endpoint
-      await api.post(
+      const transferResponse = await api.post(
         '/api/delivercoin/transfer',
         {
           fromEmail: ownerEmail,
@@ -272,9 +276,16 @@ const Dashboard = () => {
         }
       );
 
+      // Get the hash from the backend response
+      const txHash = transferResponse.data.hash;
+      console.log('Transfer response:', transferResponse.data);
+      console.log('Hash set:', txHash);
+      setHash(txHash);
+
       setSuccess('¡Pago realizado exitosamente!');
       setPaymentAmount('');
-      await fetchBalance(); // Refresh balance after payment
+      await fetchBalance();
+      await fetchAllTransactions();
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Error procesando el pago');
     } finally {
@@ -293,10 +304,25 @@ const Dashboard = () => {
     }
   };
 
+  const pollPendingTransactions = (transactions) => {
+    const hasPending = transactions.some(tx => tx.status === 'PENDING');
+    if (hasPending && !pollingRef.current) {
+      pollingRef.current = setInterval(async () => {
+        const updated = await fetchAllTransactions();
+        if (updated && !updated.some(tx => tx.status === 'PENDING')) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+      }, 5000);
+    } else if (!hasPending && pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
   const fetchAllTransactions = async () => {
     setTransactionsLoading(true);
     try {
-      // Fetch both endpoints in parallel
       const [allRes, fiatRes] = await Promise.all([
         api.get(`/api/owners/${OWNER_ID}/transactions`, {
           headers: { Authorization: `Bearer ${user.accessToken}` }
@@ -305,18 +331,18 @@ const Dashboard = () => {
           headers: { Authorization: `Bearer ${user.accessToken}` }
         })
       ]);
-
-      // Combine and sort by date (assuming both return arrays)
       const allTx = Array.isArray(allRes.data.transactions) ? allRes.data.transactions : [];
       const fiatTx = Array.isArray(fiatRes.data.transactions) ? fiatRes.data.transactions : [];
       const combined = [...allTx, ...fiatTx].sort(
         (a, b) => new Date(b.transactionDate) - new Date(a.transactionDate)
       );
-
       setTransactions(combined);
+      pollPendingTransactions(combined);
+      return combined;
     } catch (err) {
       setTransactions([]);
       setError('Error fetching transactions');
+      return [];
     } finally {
       setTransactionsLoading(false);
     }
@@ -331,6 +357,15 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchBalance();
+  }, []);
+
+  // Clear polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -362,15 +397,6 @@ const Dashboard = () => {
                       <MoneyAmount>
                         ${(moneyBalance ?? 0).toFixed(2)}
                       </MoneyAmount>
-                      <Button
-                        variant="outlined"
-                        startIcon={<RefreshIcon />}
-                        onClick={fetchAllTransactions}
-                        size="small"
-                        sx={{ mb: 0.5 }}
-                      >
-                        Refresh
-                      </Button>
                       <Typography variant="body2" color="text.secondary">
                         Last sync: {lastSync.toLocaleTimeString()}
                       </Typography>
@@ -404,15 +430,6 @@ const Dashboard = () => {
                         {balance}
                         <TokenSymbol>TKN</TokenSymbol>
                       </TokenAmount>
-                      <Button
-                        variant="outlined"
-                        startIcon={<RefreshIcon />}
-                        onClick={fetchAllTransactions}
-                        size="small"
-                        sx={{ mb: 0.5 }}
-                      >
-                        Refresh
-                      </Button>
                       <Typography variant="body2" color="text.secondary">
                         Last sync: {lastSync.toLocaleTimeString()}
                       </Typography>
@@ -525,25 +542,6 @@ const Dashboard = () => {
                     {loading ? 'Procesando...' : 'Pagar'}
                   </Button>
                 </Box>
-
-                {hash && (
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      Hash de la Transacción:
-                    </Typography>
-                    <TransactionHash variant="body2">
-                      {hash}
-                    </TransactionHash>
-                    <Button 
-                      variant="text"
-                      size="small"
-                      sx={{ mt: 1 }}
-                      onClick={() => window.open(`https://sepolia.etherscan.io/tx/${hash}`)}
-                    >
-                      Ver en Etherscan
-                    </Button>
-                  </Box>
-                )}
               </ActionCard>
             </Grid>
           </Grid>
@@ -551,21 +549,24 @@ const Dashboard = () => {
 
         {/* Transaction History Section */}
         <Grid item xs={12}>
+          {/* Place alerts here, above the Card */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+          {success && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {success}
+            </Alert>
+          )}
           <Card sx={{ mt: 3 }}>
             <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography variant="h6" gutterBottom>
                 Historial de Transacciones
               </Typography>
-              <Button
-                variant="outlined"
-                startIcon={transactionsLoading ? <CircularProgress size={18} /> : <RefreshIcon />}
-                onClick={fetchAllTransactions}
-                disabled={transactionsLoading}
-              >
-                {transactionsLoading ? 'Actualizando...' : 'Refresh'}
-              </Button>
             </Box>
-            <TableContainer sx={{ maxHeight: 400 }}>
+            <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
@@ -586,7 +587,12 @@ const Dashboard = () => {
                           {tx.transactionDate ? new Date(tx.transactionDate).toLocaleString() : ''}
                         </TableCell>
                         <TableCell>
-                          {tx.concept}
+                          <Chip
+                            label={tx.concept || tx.type}
+                            color="primary"
+                            variant="outlined"
+                            size="small"
+                          />
                         </TableCell>
                         <TableCell>
                           {tx.owner?.name || ''}
@@ -595,7 +601,17 @@ const Dashboard = () => {
                           {tx.amount} {tx.currency}
                         </TableCell>
                         <TableCell>
-                          {tx.status}
+                          <Chip
+                            label={tx.status}
+                            color={
+                              tx.status === 'SUCCESS' || tx.status === 'success'
+                                ? 'success'
+                                : tx.status === 'PENDING'
+                                ? 'warning'
+                                : 'default'
+                            }
+                            size="small"
+                          />
                         </TableCell>
                         <TableCell>
                           {tx.id}
@@ -620,18 +636,6 @@ const Dashboard = () => {
           </Card>
         </Grid>
       </Grid>
-
-      {error && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mt: 2 }}>
-          {success}
-        </Alert>
-      )}
     </DashboardContainer>
   );
 };
