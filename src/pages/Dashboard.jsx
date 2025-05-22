@@ -93,24 +93,9 @@ const TransactionHash = styled(Typography)`
 
 const API_URL = process.env.REACT_APP_API_URL;
 
-// Create axios instance with base URL
 const api = axios.create({
   baseURL: API_URL,
 });
-
-// Add request interceptor to include auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
 
 const Dashboard = () => {
   // Balance States
@@ -143,6 +128,7 @@ const Dashboard = () => {
       if (user?.role?.toLowerCase() === 'core') {
         const response = await api.get(`/api/owners/${OWNER_ID}/balances`, {
           headers: {
+            Authorization: `Bearer ${user.accessToken}`,
             'Cache-Control': 'no-cache'
           }
         });
@@ -178,6 +164,11 @@ const Dashboard = () => {
         { 
           amount: parseFloat(depositAmount),
           operation: "INFLOW"
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
         }
       );
       setSuccess(`Depósito de $${depositAmount} procesado exitosamente`);
@@ -252,7 +243,12 @@ const Dashboard = () => {
     setTransactionsLoading(true);
     try {
       const response = await api.get(
-        `/api/owners/${OWNER_ID}/transactions/fiat`
+        `/api/owners/${OWNER_ID}/transactions/fiat`,
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        }
       );
       setTransactions(Array.isArray(response.data.transactions) ? response.data.transactions : []);
     } catch (err) {
