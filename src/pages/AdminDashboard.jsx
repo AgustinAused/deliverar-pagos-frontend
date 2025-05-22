@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import {
   Card,
@@ -28,6 +28,8 @@ import {
   Remove as RemoveIcon
 } from '@mui/icons-material';
 import web3Service from '../services/web3Service';
+import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const StyledCard = styled(Card)`
   padding: 2rem;
@@ -76,6 +78,9 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [transactions, setTransactions] = useState([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(false);
+  const { user } = useAuth();
 
   // Mock data - would come from API/blockchain
   const kpiData = {
@@ -84,39 +89,43 @@ const AdminDashboard = () => {
     totalTransactions: 1200
   };
 
-  const transactions = [
-    {
-      id: 1,
-      timestamp: '2024-03-10T15:30:00',
-      from: '0x1234...5678',
-      to: '0x8765...4321',
-      amount: 100,
-      type: 'transfer',
-      status: 'success'
-    },
-    {
-      id: 2,
-      timestamp: '2024-03-10T14:15:00',
-      from: '0x2345...6789',
-      to: '0x9876...5432',
-      amount: 50,
-      type: 'reward',
-      status: 'success'
-    },
-    {
-      id: 3,
-      timestamp: '2024-03-10T12:45:00',
-      from: '0x3456...7890',
-      to: '0x0987...6543',
-      amount: 75,
-      type: 'payment',
-      status: 'pending'
+  // Fetch transactions from the API
+  const fetchTransactions = async () => {
+    setTransactionsLoading(true);
+    try {
+      const response = await axios.get(
+        'https://api.blockchain.deliver.ar/api/transactions',
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        }
+      );
+      setTransactions(Array.isArray(response.data.transactions) ? response.data.transactions : []);
+    } catch (err) {
+      setTransactions([]);
+      setError('Error fetching transactions');
+    } finally {
+      setTransactionsLoading(false);
     }
-  ];
+  };
+
+  // Fetch transactions on mount and when user changes
+  useEffect(() => {
+    if (user?.accessToken) {
+      fetchTransactions();
+    }
+  }, [user]);
 
   const handleExport = () => {
-    // Implementation for exporting data
-    console.log('Exporting data...');
+    // Export filtered transactions as JSON
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredTransactions, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "transactions.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   };
 
   const handleSearch = () => {
@@ -165,6 +174,21 @@ const AdminDashboard = () => {
       setLoading(false);
     }
   };
+
+  // Filter transactions client-side based on searchQuery
+  const filteredTransactions = transactions.filter((tx) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      (tx.originOwner?.email?.toLowerCase() || '').includes(query) ||
+      (tx.destinationOwner?.email?.toLowerCase() || '').includes(query) ||
+      (tx.from?.toLowerCase() || '').includes(query) ||
+      (tx.to?.toLowerCase() || '').includes(query) ||
+      (tx.concept?.toLowerCase() || '').includes(query) ||
+      (tx.type?.toLowerCase() || '').includes(query) ||
+      (tx.status?.toLowerCase() || '').includes(query) ||
+      (tx.id?.toLowerCase() || '').includes(query)
+    );
+  });
 
   return (
     <StyledCard>
@@ -275,13 +299,6 @@ const AdminDashboard = () => {
           placeholder="0x..."
         />
         <Button
-          variant="contained"
-          startIcon={<SearchIcon />}
-          onClick={handleSearch}
-        >
-          Search
-        </Button>
-        <Button
           variant="outlined"
           startIcon={<DownloadIcon />}
           onClick={handleExport}
@@ -303,17 +320,17 @@ const AdminDashboard = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {transactions.map((tx) => (
+            {filteredTransactions.map((tx) => (
               <TableRow key={tx.id}>
                 <TableCell>
-                  {new Date(tx.timestamp).toLocaleString()}
+                  {tx.transactionDate ? new Date(tx.transactionDate).toLocaleString() : tx.timestamp ? new Date(tx.timestamp).toLocaleString() : ''}
                 </TableCell>
-                <TableCell>{tx.from}</TableCell>
-                <TableCell>{tx.to}</TableCell>
-                <TableCell>{tx.amount} TKN</TableCell>
+                <TableCell>{tx.originOwner?.email || tx.from}</TableCell>
+                <TableCell>{tx.destinationOwner?.email || tx.to}</TableCell>
+                <TableCell>{tx.amount} {tx.currency || 'TKN'}</TableCell>
                 <TableCell>
                   <Chip
-                    label={tx.type}
+                    label={tx.concept || tx.type}
                     color="primary"
                     variant="outlined"
                     size="small"
@@ -322,7 +339,7 @@ const AdminDashboard = () => {
                 <TableCell>
                   <Chip
                     label={tx.status}
-                    color={tx.status === 'success' ? 'success' : 'warning'}
+                    color={tx.status === 'SUCCESS' || tx.status === 'success' ? 'success' : 'warning'}
                     size="small"
                   />
                 </TableCell>

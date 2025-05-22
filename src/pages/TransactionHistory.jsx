@@ -29,6 +29,8 @@ import {
   FilterList as FilterIcon,
   Search as SearchIcon
 } from '@mui/icons-material';
+import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 
 const PageContainer = styled(Box)`
   padding: 2rem;
@@ -53,54 +55,37 @@ const TransactionHistory = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const { user } = useAuth();
 
-  // Mock transaction data - would come from API/blockchain
-  const transactions = [
-    {
-      id: 1,
-      timestamp: '2024-03-10T15:30:00',
-      type: 'payment',
-      amount: 10,
-      status: 'success',
-      hash: '0x1234...5678',
-      description: 'Payment for order #123',
-      from: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
-      to: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e'
-    },
-    {
-      id: 2,
-      timestamp: '2024-03-10T14:15:00',
-      type: 'reward',
-      amount: 2,
-      status: 'success',
-      hash: '0x5678...9012',
-      description: 'Delivery reward',
-      from: 'System',
-      to: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e'
-    },
-    {
-      id: 3,
-      timestamp: '2024-03-10T12:45:00',
-      type: 'payment',
-      amount: 5,
-      status: 'pending',
-      hash: '0x9012...3456',
-      description: 'Payment for order #124',
-      from: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
-      to: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e'
-    },
-    {
-      id: 4,
-      timestamp: '2024-03-09T16:20:00',
-      type: 'deposit',
-      amount: 20,
-      status: 'success',
-      hash: '0x3456...7890',
-      description: 'Token purchase',
-      from: 'Exchange',
-      to: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e'
+  // Fetch transactions from the API
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(
+        'https://api.blockchain.deliver.ar/api/transactions',
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        }
+      );
+      setTransactions(Array.isArray(response.data.transactions) ? response.data.transactions : []);
+    } catch (err) {
+      setTransactions([]);
+      setError('Error fetching transactions');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  React.useEffect(() => {
+    if (user?.accessToken) {
+      fetchTransactions();
+    }
+  }, [user]);
 
   const getTypeIcon = (type) => {
     switch (type) {
@@ -155,16 +140,20 @@ const TransactionHistory = () => {
   const filterTransactions = () => {
     return transactions.filter(tx => {
       const matchesSearch = 
-        tx.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.hash.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.to.toLowerCase().includes(searchQuery.toLowerCase());
+        (tx.description?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.hash?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.from?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.to?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.originOwner?.email?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.destinationOwner?.email?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.concept?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.type?.toLowerCase() || '').includes(searchQuery.toLowerCase());
 
-      const matchesType = typeFilter === 'all' || tx.type === typeFilter;
-      const matchesStatus = statusFilter === 'all' || tx.status === statusFilter;
+      const matchesType = typeFilter === 'all' || (tx.concept || tx.type || '').toLowerCase() === typeFilter;
+      const matchesStatus = statusFilter === 'all' || (tx.status || '').toLowerCase() === statusFilter;
 
       let matchesDate = true;
-      const txDate = new Date(tx.timestamp);
+      const txDate = new Date(tx.transactionDate || tx.createdAt || tx.timestamp);
       const now = new Date();
       
       switch (dateFilter) {
@@ -172,11 +161,13 @@ const TransactionHistory = () => {
           matchesDate = txDate.toDateString() === now.toDateString();
           break;
         case 'week':
-          const weekAgo = new Date(now.setDate(now.getDate() - 7));
+          const weekAgo = new Date(now);
+          weekAgo.setDate(now.getDate() - 7);
           matchesDate = txDate >= weekAgo;
           break;
         case 'month':
-          const monthAgo = new Date(now.setMonth(now.getMonth() - 1));
+          const monthAgo = new Date(now);
+          monthAgo.setMonth(now.getMonth() - 1);
           matchesDate = txDate >= monthAgo;
           break;
         default:
@@ -271,10 +262,9 @@ const TransactionHistory = () => {
               <TableRow>
                 <TableCell>Fecha</TableCell>
                 <TableCell>Tipo</TableCell>
-                <TableCell>Descripción</TableCell>
                 <TableCell>De</TableCell>
                 <TableCell>Para</TableCell>
-                <TableCell align="right">Cantidad</TableCell>
+                <TableCell>Cantidad</TableCell>
                 <TableCell>Estado</TableCell>
                 <TableCell>Hash</TableCell>
               </TableRow>
@@ -283,48 +273,29 @@ const TransactionHistory = () => {
               {filteredTransactions.map((tx) => (
                 <TableRow key={tx.id}>
                   <TableCell>
-                    {new Date(tx.timestamp).toLocaleString()}
+                    {tx.transactionDate
+                      ? new Date(tx.transactionDate).toLocaleString()
+                      : tx.createdAt
+                      ? new Date(tx.createdAt).toLocaleString()
+                      : tx.timestamp
+                      ? new Date(tx.timestamp).toLocaleString()
+                      : ''}
                   </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {getTypeIcon(tx.type)}
-                      {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
+                      {getTypeIcon(tx.concept || tx.type)}
+                      {(tx.concept || tx.type || '').charAt(0).toUpperCase() + (tx.concept || tx.type || '').slice(1)}
                     </Box>
                   </TableCell>
-                  <TableCell>{tx.description}</TableCell>
                   <TableCell>
-                    <Tooltip title={tx.from}>
-                      <Link
-                        href={`https://sepolia.etherscan.io/address/${tx.from}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{ 
-                          textDecoration: 'none',
-                          '&:hover': { textDecoration: 'underline' }
-                        }}
-                      >
-                        {tx.from.length > 15 ? `${tx.from.slice(0, 6)}...${tx.from.slice(-4)}` : tx.from}
-                      </Link>
-                    </Tooltip>
+                    {tx.originOwner?.email || tx.from || ''}
                   </TableCell>
                   <TableCell>
-                    <Tooltip title={tx.to}>
-                      <Link
-                        href={`https://sepolia.etherscan.io/address/${tx.to}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{ 
-                          textDecoration: 'none',
-                          '&:hover': { textDecoration: 'underline' }
-                        }}
-                      >
-                        {tx.to.length > 15 ? `${tx.to.slice(0, 6)}...${tx.to.slice(-4)}` : tx.to}
-                      </Link>
-                    </Tooltip>
+                    {tx.destinationOwner?.email || tx.to || ''}
                   </TableCell>
                   <TableCell align="right">
-                    <TransactionAmount color={getAmountColor(tx.type)}>
-                      {getAmountPrefix(tx.type)}{tx.amount} TKN
+                    <TransactionAmount color={getAmountColor(tx.concept || tx.type)}>
+                      {getAmountPrefix(tx.concept || tx.type)}{tx.amount} {tx.currency || 'TKN'}
                     </TransactionAmount>
                   </TableCell>
                   <TableCell>
@@ -335,9 +306,9 @@ const TransactionHistory = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Tooltip title={tx.hash}>
+                    <Tooltip title={tx.blockchainInTxHash || tx.hash || ''}>
                       <Link
-                        href={`https://sepolia.etherscan.io/tx/${tx.hash}`}
+                        href={tx.blockchainInTxHash ? `https://sepolia.etherscan.io/tx/${tx.blockchainInTxHash}` : tx.hash ? `https://sepolia.etherscan.io/tx/${tx.hash}` : '#'}
                         target="_blank"
                         rel="noopener noreferrer"
                         sx={{ 
@@ -345,7 +316,7 @@ const TransactionHistory = () => {
                           '&:hover': { textDecoration: 'underline' }
                         }}
                       >
-                        {tx.hash}
+                        {tx.blockchainInTxHash || tx.hash || ''}
                       </Link>
                     </Tooltip>
                   </TableCell>
