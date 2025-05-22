@@ -73,6 +73,13 @@ const ActionContainer = styled(Box)`
   margin-top: 1rem;
 `;
 
+const API_URL = process.env.REACT_APP_API_URL;
+
+// Create axios instance with base URL
+const api = axios.create({
+  baseURL: API_URL,
+});
+
 const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [tokenAmount, setTokenAmount] = useState('');
@@ -84,12 +91,28 @@ const AdminDashboard = () => {
   const { user } = useAuth();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(6);
+  const [kpiData, setKpiData] = useState({
+    totalOfCryptos: 0,
+    totalOfOwners: 0,
+    totalOfTransactions: 0
+  });
 
-  // Mock data - would come from API/blockchain
-  const kpiData = {
-    totalVolume: 15000,
-    activeUsers: 250,
-    totalTransactions: 1200
+  // Move fetchKpis outside useEffect so it can be called from handleMint
+  const fetchKpis = async () => {
+    try {
+      const response = await api.get('/api/delivercoin', {
+        headers: {
+          Authorization: `Bearer ${user.accessToken}`
+        }
+      });
+      setKpiData(response.data);
+    } catch (err) {
+      setKpiData({
+        totalOfCryptos: 0,
+        totalOfOwners: 0,
+        totalOfTransactions: 0
+      });
+    }
   };
 
   // Fetch transactions from the API
@@ -120,6 +143,12 @@ const AdminDashboard = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (user?.accessToken) {
+      fetchKpis();
+    }
+  }, [user]);
+
   const handleExport = () => {
     // Export filtered transactions as JSON
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredTransactions, null, 2));
@@ -147,11 +176,20 @@ const AdminDashboard = () => {
     setSuccess('');
 
     try {
-      await web3Service.mint(tokenAmount);
+      await api.post(
+        '/api/delivercoin/mint',
+        { amount: parseFloat(tokenAmount) },
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        }
+      );
       setSuccess(`Successfully minted ${tokenAmount} tokens`);
       setTokenAmount('');
+      await fetchKpis(); // Refresh KPIs after mint
     } catch (err) {
-      setError(err.message || 'Error minting tokens');
+      setError(err.response?.data?.message || 'Error minting tokens');
     } finally {
       setLoading(false);
     }
@@ -168,11 +206,20 @@ const AdminDashboard = () => {
     setSuccess('');
 
     try {
-      await web3Service.burn(tokenAmount);
+      await api.post(
+        '/api/delivercoin/burn',
+        { amount: parseFloat(tokenAmount) },
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        }
+      );
       setSuccess(`Successfully burned ${tokenAmount} tokens`);
       setTokenAmount('');
+      await fetchKpis(); // Refresh KPIs after burn
     } catch (err) {
-      setError(err.message || 'Error burning tokens');
+      setError(err.response?.data?.message || 'Error burning tokens');
     } finally {
       setLoading(false);
     }
@@ -210,7 +257,7 @@ const AdminDashboard = () => {
                 Total Volume
               </Typography>
               <Typography variant="h4">
-                {kpiData.totalVolume} TKN
+                {kpiData.totalOfCryptos} TKN
               </Typography>
             </Box>
           </KPICard>
@@ -226,7 +273,7 @@ const AdminDashboard = () => {
                 Active Users
               </Typography>
               <Typography variant="h4">
-                {kpiData.activeUsers}
+                {kpiData.totalOfOwners}
               </Typography>
             </Box>
           </KPICard>
@@ -242,7 +289,7 @@ const AdminDashboard = () => {
                 Total Transactions
               </Typography>
               <Typography variant="h4">
-                {kpiData.totalTransactions}
+                {kpiData.totalOfTransactions}
               </Typography>
             </Box>
           </KPICard>
@@ -281,16 +328,15 @@ const AdminDashboard = () => {
             Burn
           </Button>
         </ActionContainer>
-        {error && (
+        {error ? (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
           </Alert>
-        )}
-        {success && (
+        ) : success ? (
           <Alert severity="success" sx={{ mt: 2 }}>
             {success}
           </Alert>
-        )}
+        ) : null}
       </TokenActionCard>
 
       <SearchContainer>
