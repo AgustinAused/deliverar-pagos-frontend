@@ -192,11 +192,36 @@ const Dashboard = () => {
     setSuccess('');
 
     try {
+      // 1. Fetch owner email
+      const ownerRes = await api.get(
+        `/api/owners/${OWNER_ID}`,
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        }
+      );
+      const ownerEmail = ownerRes.data.email;
+
+      // 2. Call buy endpoint
+      await api.post(
+        '/api/delivercoin/buy',
+        {
+          email: ownerEmail,
+          amount: parseFloat(tokenAmount)
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
+        }
+      );
+
       setSuccess(`Compra de ${tokenAmount} tokens procesada exitosamente`);
       setTokenAmount('');
       await fetchBalance(); // Refresh balance after purchase
     } catch (err) {
-      setError(err.message || 'Error comprando tokens');
+      setError(err.response?.data?.message || err.message || 'Error comprando tokens');
     } finally {
       setLoading(false);
     }
@@ -238,22 +263,30 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch fiat transactions from the API
-  const fetchFiatTransactions = async () => {
+  const fetchAllTransactions = async () => {
     setTransactionsLoading(true);
     try {
-      const response = await api.get(
-        `/api/owners/${OWNER_ID}/transactions/fiat`,
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        }
+      // Fetch both endpoints in parallel
+      const [allRes, fiatRes] = await Promise.all([
+        api.get(`/api/owners/${OWNER_ID}/transactions`, {
+          headers: { Authorization: `Bearer ${user.accessToken}` }
+        }),
+        api.get(`/api/owners/${OWNER_ID}/transactions/fiat`, {
+          headers: { Authorization: `Bearer ${user.accessToken}` }
+        })
+      ]);
+
+      // Combine and sort by date (assuming both return arrays)
+      const allTx = Array.isArray(allRes.data.transactions) ? allRes.data.transactions : [];
+      const fiatTx = Array.isArray(fiatRes.data.transactions) ? fiatRes.data.transactions : [];
+      const combined = [...allTx, ...fiatTx].sort(
+        (a, b) => new Date(b.transactionDate) - new Date(a.transactionDate)
       );
-      setTransactions(Array.isArray(response.data.transactions) ? response.data.transactions : []);
+
+      setTransactions(combined);
     } catch (err) {
       setTransactions([]);
-      setError('Error fetching fiat transactions');
+      setError('Error fetching transactions');
     } finally {
       setTransactionsLoading(false);
     }
@@ -262,7 +295,7 @@ const Dashboard = () => {
   // Call this when the component mounts or when the user changes
   useEffect(() => {
     if (user?.accessToken) {
-      fetchFiatTransactions();
+      fetchAllTransactions();
     }
   }, [user]);
 
@@ -302,7 +335,7 @@ const Dashboard = () => {
                       <Button
                         variant="outlined"
                         startIcon={<RefreshIcon />}
-                        onClick={fetchBalance}
+                        onClick={fetchAllTransactions}
                         size="small"
                         sx={{ mb: 0.5 }}
                       >
@@ -344,7 +377,7 @@ const Dashboard = () => {
                       <Button
                         variant="outlined"
                         startIcon={<RefreshIcon />}
-                        onClick={fetchBalance}
+                        onClick={fetchAllTransactions}
                         size="small"
                         sx={{ mb: 0.5 }}
                       >
@@ -496,7 +529,7 @@ const Dashboard = () => {
               <Button
                 variant="outlined"
                 startIcon={transactionsLoading ? <CircularProgress size={18} /> : <RefreshIcon />}
-                onClick={fetchFiatTransactions}
+                onClick={fetchAllTransactions}
                 disabled={transactionsLoading}
               >
                 {transactionsLoading ? 'Actualizando...' : 'Refresh'}
