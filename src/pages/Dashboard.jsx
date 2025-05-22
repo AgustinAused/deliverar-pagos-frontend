@@ -114,6 +114,7 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [hash, setHash] = useState('');
+  const [destinationEmail, setDestinationEmail] = useState('');
 
   // Transaction History State
   const { user, setUser } = useAuth();
@@ -125,6 +126,14 @@ const Dashboard = () => {
   const OWNER_ID = 'e564456a-2590-4ec8-bcb7-77bcd9dba05b';
 
   const pollingRef = useRef(null);
+
+  // Add separate alert state for each box
+  const [depositError, setDepositError] = useState('');
+  const [depositSuccess, setDepositSuccess] = useState('');
+  const [buyError, setBuyError] = useState('');
+  const [buySuccess, setBuySuccess] = useState('');
+  const [payError, setPayError] = useState('');
+  const [paySuccess, setPaySuccess] = useState('');
 
   const fetchBalance = async () => {
     setBalanceLoading(true);
@@ -155,33 +164,25 @@ const Dashboard = () => {
   
   const handleDeposit = async () => {
     if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
-      setError('Por favor ingresa un monto válido');
+      setDepositError('Por favor ingresa un monto válido');
+      setDepositSuccess('');
       return;
     }
-
     setLoading(true);
-    setError('');
-    setSuccess('');
-
+    setDepositError('');
+    setDepositSuccess('');
     try {
       await api.post(
         `/api/owners/${OWNER_ID}/fiat`,
-        { 
-          amount: parseFloat(depositAmount),
-          operation: "INFLOW"
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        }
+        { amount: parseFloat(depositAmount), operation: "INFLOW" },
+        { headers: { Authorization: `Bearer ${user.accessToken}` } }
       );
-      setSuccess(`Depósito de $${depositAmount} procesado exitosamente`);
+      setDepositSuccess('Depósito procesado exitosamente');
       setDepositAmount('');
       await fetchBalance();
       await fetchAllTransactions();
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Error procesando el depósito');
+      setDepositError(err.response?.data?.message || 'Revisar datos ingresados');
     } finally {
       setLoading(false);
     }
@@ -189,46 +190,33 @@ const Dashboard = () => {
 
   const handleBuyTokens = async () => {
     if (!tokenAmount || isNaN(Number(tokenAmount)) || Number(tokenAmount) <= 0) {
-      setError('Por favor ingresa una cantidad válida de tokens');
+      setBuyError('Por favor ingresa una cantidad válida de tokens');
+      setBuySuccess('');
       return;
     }
-
     setLoading(true);
-    setError('');
-    setSuccess('');
-
+    setBuyError('');
+    setBuySuccess('');
     try {
       // 1. Fetch owner email
       const ownerRes = await api.get(
         `/api/owners/${OWNER_ID}`,
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        }
+        { headers: { Authorization: `Bearer ${user.accessToken}` } }
       );
       const ownerEmail = ownerRes.data.email;
-
       // 2. Call buy endpoint
       await api.post(
         '/api/delivercoin/buy',
-        {
-          email: ownerEmail,
-          amount: parseFloat(tokenAmount)
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        }
+        { email: ownerEmail, amount: parseFloat(tokenAmount) },
+        { headers: { Authorization: `Bearer ${user.accessToken}` } }
       );
 
-      setSuccess(`Compra de ${tokenAmount} tokens procesada exitosamente`);
+      setBuySuccess(`Compra de ${tokenAmount} tokens procesada exitosamente`);
       setTokenAmount('');
       await fetchBalance(); // Refresh balance after purchase
       await fetchAllTransactions();
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Error comprando tokens');
+      setBuyError(err.response?.data?.message || 'Revisar datos ingresados');
     } finally {
       setLoading(false);
     }
@@ -236,58 +224,53 @@ const Dashboard = () => {
 
   const handlePayment = async () => {
     if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) {
-      setError('Por favor ingresa una cantidad válida de tokens');
+      setPayError('Por favor ingresa una cantidad válida de tokens');
+      setPaySuccess('');
       return;
     }
-
     setLoading(true);
-    setError('');
-    setSuccess('');
-    
+    setPayError('');
+    setPaySuccess('');
     try {
       // 1. Fetch owner email
       const ownerRes = await api.get(
         `/api/owners/${OWNER_ID}`,
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        }
+        { headers: { Authorization: `Bearer ${user.accessToken}` } }
       );
       const ownerEmail = ownerRes.data.email;
-      console.log('Owner email:', ownerEmail);
-      const destinationEmail = "agus@example.com";
-      console.log('Destination email:', destinationEmail);
       const transferAmount = parseFloat(paymentAmount);
-      console.log('Transfer amount:', transferAmount);
-
       // 2. Call transfer endpoint
       const transferResponse = await api.post(
         '/api/delivercoin/transfer',
-        {
-          fromEmail: ownerEmail,
-          toEmail: destinationEmail,
-          amount: transferAmount
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        }
+        { fromEmail: ownerEmail, toEmail: destinationEmail, amount: transferAmount },
+        { headers: { Authorization: `Bearer ${user.accessToken}` } }
       );
-
-      // Get the hash from the backend response
       const txHash = transferResponse.data.hash;
-      console.log('Transfer response:', transferResponse.data);
-      console.log('Hash set:', txHash);
       setHash(txHash);
-
-      setSuccess('¡Pago realizado exitosamente!');
+      setPaySuccess('Pago realizado exitosamente!');
       setPaymentAmount('');
+      setDestinationEmail('');
       await fetchBalance();
       await fetchAllTransactions();
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Error procesando el pago');
+      console.error('Payment error:', err);
+      if (err.response?.status === 400) {
+        setPayError(
+          err.response?.data?.message ||
+          'Revisar datos ingresados'
+        );
+      } else if (err.response?.status === 500) {
+        setPayError(
+          err.response?.data?.message ||
+          'Error interno del servidor. Intenta nuevamente más tarde.'
+        );
+      } else {
+        setPayError(
+          err.response?.data?.message ||
+          err.message ||
+          'Error procesando el pago'
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -367,6 +350,12 @@ const Dashboard = () => {
       }
     };
   }, []);
+
+  // Add email validation helper
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  // Add this helper above your return:
+  const isNegativeAmount = paymentAmount && !isNaN(Number(paymentAmount)) && Number(paymentAmount) < 0;
 
   return (
     <DashboardContainer>
@@ -474,6 +463,8 @@ const Dashboard = () => {
                     {loading ? <CircularProgress size={24} /> : 'Depositar'}
                   </Button>
                 </Box>
+                {depositSuccess && <Alert severity="success" sx={{ mb: 2 }}>{depositSuccess}</Alert>}
+                {depositError && <Alert severity="error" sx={{ mb: 2 }}>{depositError}</Alert>}
               </ActionCard>
             </Grid>
 
@@ -507,6 +498,8 @@ const Dashboard = () => {
                     {loading ? <CircularProgress size={24} /> : 'Comprar'}
                   </Button>
                 </Box>
+                {buySuccess && <Alert severity="success" sx={{ mb: 2 }}>{buySuccess}</Alert>}
+                {buyError && <Alert severity="error" sx={{ mb: 2 }}>{buyError}</Alert>}
               </ActionCard>
             </Grid>
 
@@ -519,7 +512,7 @@ const Dashboard = () => {
                     Pagar con Tokens
                   </Typography>
                 </IconBox>
-                <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField
                     label="Cantidad de tokens"
                     value={paymentAmount}
@@ -531,17 +524,60 @@ const Dashboard = () => {
                     InputProps={{
                       endAdornment: <Typography sx={{ ml: 1 }}>TKN</Typography>
                     }}
+                    error={isNegativeAmount}
+                    helperText={isNegativeAmount ? 'Ingresar número válido' : ''}
+                  />
+                  <TextField
+                    label="Email destino"
+                    value={destinationEmail}
+                    onChange={(e) => setDestinationEmail(e.target.value)}
+                    type="email"
+                    fullWidth
+                    size="small"
+                    placeholder="ejemplo@correo.com"
+                    sx={{ mb: 2 }}
+                    error={!!destinationEmail && !isValidEmail(destinationEmail)}
+                    helperText={
+                      !!destinationEmail && !isValidEmail(destinationEmail)
+                        ? 'Ingrese un email válido'
+                        : ''
+                    }
                   />
                   <Button
                     variant="contained"
                     color="secondary"
                     onClick={handlePayment}
-                    disabled={loading}
+                    disabled={
+                      loading ||
+                      !paymentAmount ||
+                      isNaN(Number(paymentAmount)) ||
+                      Number(paymentAmount) <= 0 ||
+                      !destinationEmail ||
+                      !isValidEmail(destinationEmail)
+                    }
                     startIcon={loading ? <CircularProgress size={20} /> : <WalletIcon />}
                   >
                     {loading ? 'Procesando...' : 'Pagar'}
                   </Button>
+                  {paySuccess && <Alert severity="success" sx={{ mt: 2 }}>{paySuccess}</Alert>}
+                  {payError && <Alert severity="error" sx={{ mt: 2 }}>{payError}</Alert>}
                 </Box>
+                {hash && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" gutterBottom>
+                      Hash de la Transacción:
+                    </Typography>
+                    <TransactionHash variant="body2">
+                      {hash}
+                    </TransactionHash>
+                    <Typography
+                      sx={{ mt: 1, color: 'primary.main', cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => window.open(`https://sepolia.etherscan.io/tx/${hash}`)}
+                    >
+                      Ver en Etherscan: https://sepolia.etherscan.io/tx/{hash}
+                    </Typography>
+                  </Box>
+                )}
               </ActionCard>
             </Grid>
           </Grid>
@@ -549,17 +585,6 @@ const Dashboard = () => {
 
         {/* Transaction History Section */}
         <Grid item xs={12}>
-          {/* Place alerts here, above the Card */}
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-          {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              {success}
-            </Alert>
-          )}
           <Card sx={{ mt: 3 }}>
             <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography variant="h6" gutterBottom>
@@ -572,10 +597,10 @@ const Dashboard = () => {
                   <TableRow>
                     <TableCell>Fecha</TableCell>
                     <TableCell>Tipo</TableCell>
-                    <TableCell>Descripción</TableCell>
+                    <TableCell>Destinatario</TableCell>
                     <TableCell align="right">Cantidad</TableCell>
                     <TableCell>Estado</TableCell>
-                    <TableCell>Hash</TableCell>
+                    <TableCell>ID Transaccion</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -595,7 +620,7 @@ const Dashboard = () => {
                           />
                         </TableCell>
                         <TableCell>
-                          {tx.owner?.name || ''}
+                          {tx.destinationOwner?.email || tx.to || ''}
                         </TableCell>
                         <TableCell align="right">
                           {tx.amount} {tx.currency}
