@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import web3Service from '../services/web3Service';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import api from '../services/api';
 
 const DashboardContainer = styled(Box)`
   padding: 2rem;
@@ -119,9 +119,8 @@ const Dashboard = () => {
     setMoneyBalanceLoading(true);
     try {
       if (user?.role?.toLowerCase() === 'core') {
-        const response = await axios.get(`/api/owners/${OWNER_ID}/balances`, {
+        const response = await api.get(`/api/owners/${OWNER_ID}/balances`, {
           headers: {
-            Authorization: `Bearer ${user.accessToken}`,
             'Cache-Control': 'no-cache'
           }
         });
@@ -151,16 +150,11 @@ const Dashboard = () => {
     setSuccess('');
 
     try {
-      await axios.post(
+      await api.post(
         `/api/owners/${OWNER_ID}/fiat`,
         { 
           amount: parseFloat(depositAmount),
           operation: "INFLOW"
-        },
-        { 
-          headers: { 
-            Authorization: `Bearer ${user.accessToken}`
-          } 
         }
       );
       setSuccess(`Depósito de $${depositAmount} procesado exitosamente`);
@@ -234,13 +228,8 @@ const Dashboard = () => {
   const fetchFiatTransactions = async () => {
     setTransactionsLoading(true);
     try {
-      const response = await axios.get(
-        `https://api.blockchain.deliver.ar/api/owners/${OWNER_ID}/transactions/fiat`,
-        {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        }
+      const response = await api.get(
+        `/api/owners/${OWNER_ID}/transactions/fiat`
       );
       setTransactions(Array.isArray(response.data.transactions) ? response.data.transactions : []);
     } catch (err) {
