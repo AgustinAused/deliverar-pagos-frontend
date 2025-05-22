@@ -8,7 +8,7 @@ const AUTH_REFRESH = '/api/auth/refresh';
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Accept'] = 'application/json';
 axios.defaults.withCredentials = true; // This is important for CORS with credentials
-console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+console.log('REACT_APP_API_URL:', API_URL);
 
 const authService = {
   login: async (email, password) => {
