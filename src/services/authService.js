@@ -1,49 +1,71 @@
 import axios from 'axios';
 
-const API_URL ="https://api.blockchain.deliver.ar";
+const API_URL = process.env.REACT_APP_API_URL || 'https://api.blockchain.deliver.ar';
 const AUTH_LOGIN = '/api/auth/login';
 const AUTH_LOGOUT = '/api/auth/logout';
 const AUTH_REFRESH = '/api/auth/refresh';
+
 // Configure axios defaults
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 axios.defaults.headers.common['Accept'] = 'application/json';
-axios.defaults.withCredentials = true; // This is important for CORS with credentials
-console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+
+// Create axios instance with base configuration
+const api = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+});
 
 const authService = {
   login: async (email, password) => {
-    const loginUrl = `${process.env.REACT_APP_API_URL}${AUTH_LOGIN}`;
+    const loginUrl = `${AUTH_LOGIN}`;
     console.log('Attempting login with:', {
       url: loginUrl,
       email: email,
-      method: 'POST',
-      apiUrl: API_URL
+      method: 'POST'
     });
     
     try {
-      const response = await axios.post(loginUrl, {
+      const response = await api.post(loginUrl, {
         email,
         password,
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-        }
       });
       
-      console.log('Login successful:', response.data);
-      if (response.data.token) {
-        localStorage.setItem('user', JSON.stringify(response.data));
+      console.log('Raw login response:', response);
+      console.log('Response data:', response.data);
+      
+      if (!response.data) {
+        throw new Error('No data received from server');
       }
-      return response.data;
+
+      // Check for different possible token field names
+      const token = response.data.token || response.data.accessToken || response.data.access_token;
+      
+      if (token) {
+        const userData = {
+          ...response.data,
+          token: token // Normalize token field name
+        };
+        localStorage.setItem('user', JSON.stringify(userData));
+        return userData;
+      } else {
+        console.error('Response structure:', {
+          data: response.data,
+          keys: Object.keys(response.data)
+        });
+        throw new Error('No token found in server response');
+      }
     } catch (error) {
       console.error('Login failed:', {
         status: error.response?.status,
         statusText: error.response?.statusText,
         data: error.response?.data,
         url: error.config?.url,
-        method: error.config?.method
+        method: error.config?.method,
+        message: error.message,
+        stack: error.stack
       });
       throw error;
     }
@@ -51,14 +73,8 @@ const authService = {
 
   logout: async () => {
     try {
-      await axios.post(`${API_URL}${AUTH_LOGOUT}`, {}, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        }
-      });
+      await api.post(AUTH_LOGOUT);
     } catch (e) {
-      // Log the error but do not block logout
       console.error('Logout network error:', e);
     } finally {
       localStorage.removeItem('user');
@@ -66,12 +82,7 @@ const authService = {
   },
 
   refreshToken: async () => {
-    const response = await axios.post(`${API_URL}${AUTH_REFRESH}`, {}, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      }
-    });
+    const response = await api.post(AUTH_REFRESH);
     if (response.data.token) {
       localStorage.setItem('user', JSON.stringify(response.data));
     }
