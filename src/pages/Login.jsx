@@ -38,26 +38,33 @@ const Login = () => {
     try {
       const response = await login(formData.email, formData.password);
       console.log('Login response:', response);
-      
-      // Redirect based on role
-      switch (response.role?.toLowerCase()) {
-        case 'admin':
-          navigate('/admin-dashboard');
-          break;
-        case 'auditor':
-          navigate('/transaction-history');
-          break;
-        case 'user':
-        case 'core':
-          navigate('/dashboard');
-          break;
-        default:
-          console.log('Unknown role:', response.role);
-          navigate('/dashboard');
+      if (response.accessToken) {  // Verifica que tenemos el accessToken
+        // Redirect based on role
+        switch (response.role?.toLowerCase()) {
+          case 'admin':
+            navigate('/admin-dashboard');
+            break;
+          case 'auditor':
+            navigate('/transaction-history');
+            break;
+          case 'user':
+          case 'core':
+            navigate('/dashboard');
+            break;
+          default:
+            console.log('Unknown role:', response.role);
+            navigate('/dashboard');
+        }
+      } else {
+        throw new Error('No accessToken received from server');
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.message || 'Failed to login');
+      setError(
+        err.response?.data?.message || 
+        err.message || 
+        'Failed to login. Please check your credentials.'
+      );
     } finally {
       setLoading(false);
     }

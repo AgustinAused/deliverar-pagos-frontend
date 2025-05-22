@@ -16,14 +16,21 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    const response = await authService.login(email, password);
-    // TEMP: Hardcode ownerId for core users for testing
-    if (response.role?.toLowerCase() === 'core') {
-      setUser({ ...response, ownerId: 'e564456a-2590-4ec8-bcb7-77bcd9dba05b' });
-      return { ...response, ownerId: 'e564456a-2590-4ec8-bcb7-77bcd9dba05b' };
-    } else {
-      setUser(response);
-      return response;
+    try {
+      const response = await authService.login(email, password);
+      const userData = {
+        ...response,
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken,
+        role: response.role,
+        userPermissions: response.userPermissions
+        // ownerId: response.ownerId // Only if present in the response
+      };
+      setUser(userData);
+      return userData;
+    } catch (error) {
+      console.error('Login error in context:', error);
+      throw error;
     }
   };
 
@@ -34,6 +41,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
+    setUser,
     login,
     logout,
     isAuthenticated: !!user,

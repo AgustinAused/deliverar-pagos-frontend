@@ -112,22 +112,22 @@ const Dashboard = () => {
   const [transactions, setTransactions] = useState([]);
   const [transactionsLoading, setTransactionsLoading] = useState(false);
 
+  const OWNER_ID = 'e564456a-2590-4ec8-bcb7-77bcd9dba05b';
+
   const fetchBalance = async () => {
     setBalanceLoading(true);
     setMoneyBalanceLoading(true);
     try {
-      if (user?.role?.toLowerCase() === 'core' && user?.ownerId) {
-        const response = await axios.get(`/api/owners/${user.ownerId}/balances`, {
+      if (user?.role?.toLowerCase() === 'core') {
+        const response = await axios.get(`/api/owners/${OWNER_ID}/balances`, {
           headers: {
             Authorization: `Bearer ${user.accessToken}`
           }
         });
-        console.log('Balance API response:', response.data);
         setBalance(response.data.cryptoBalance);
         setMoneyBalance(response.data.fiatBalance);
         setLastSync(new Date());
       } else {
-        // fallback for other roles or demo
         setBalance(Math.floor(Math.random() * 100));
         setMoneyBalance(Math.floor(Math.random() * 1000));
       }
@@ -150,11 +150,23 @@ const Dashboard = () => {
     setSuccess('');
 
     try {
+      await axios.post(
+        `/api/owners/${OWNER_ID}/fiat`,
+        { 
+          amount: parseFloat(depositAmount),
+          operation: "INFLOW"
+        },
+        { 
+          headers: { 
+            Authorization: `Bearer ${user.accessToken}`
+          } 
+        }
+      );
       setSuccess(`Depósito de $${depositAmount} procesado exitosamente`);
       setDepositAmount('');
-      await fetchBalance(); // Refresh balance after deposit
+      await fetchBalance();
     } catch (err) {
-      setError(err.message || 'Error procesando el depósito');
+      setError(err.response?.data?.message || err.message || 'Error procesando el depósito');
     } finally {
       setLoading(false);
     }
@@ -217,37 +229,39 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch transaction history for core users
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      if (user?.role?.toLowerCase() === 'core' && user?.ownerId) {
-        setTransactionsLoading(true);
-        try {
-          const response = await axios.get(`/api/owners/${user.ownerId}/transactions`, {
-            headers: {
-              Authorization: `Bearer ${user.accessToken}`
-            }
-          });
-          console.log('Transactions API response:', response.data);
-          setTransactions(Array.isArray(response.data.transactions) ? response.data.transactions : []);
-        } catch (err) {
-          console.error('Error fetching transactions:', err);
-          setTransactions([]);
-        } finally {
-          setTransactionsLoading(false);
+  // Fetch fiat transactions from the API
+  const fetchFiatTransactions = async () => {
+    setTransactionsLoading(true);
+    try {
+      const response = await axios.get(
+        `https://api.blockchain.deliver.ar/api/owners/${OWNER_ID}/transactions/fiat`,
+        {
+          headers: {
+            Authorization: `Bearer ${user.accessToken}`
+          }
         }
-      } else {
-        console.log('User is not core or missing ownerId:', user);
-      }
-    };
-    fetchTransactions();
+      );
+      setTransactions(Array.isArray(response.data.transactions) ? response.data.transactions : []);
+    } catch (err) {
+      setTransactions([]);
+      setError('Error fetching fiat transactions');
+    } finally {
+      setTransactionsLoading(false);
+    }
+  };
+
+  // Call this when the component mounts or when the user changes
+  useEffect(() => {
+    if (user?.accessToken) {
+      fetchFiatTransactions();
+    }
   }, [user]);
 
   useEffect(() => {
     const fetchOwnerBalance = async () => {
-      if (user?.role?.toLowerCase() === 'core' && user?.ownerId) {
+      if (user?.role?.toLowerCase() === 'core') {
         try {
-          const response = await axios.get(`/api/owners/${user.ownerId}/balances`, {
+          const response = await axios.get(`/api/owners/${OWNER_ID}/balances`, {
             headers: {
               Authorization: `Bearer ${user.accessToken}`
             }
@@ -485,10 +499,18 @@ const Dashboard = () => {
         {/* Transaction History Section */}
         <Grid item xs={12}>
           <Card sx={{ mt: 3 }}>
-            <Box sx={{ p: 2 }}>
+            <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography variant="h6" gutterBottom>
                 Historial de Transacciones
               </Typography>
+              <Button
+                variant="outlined"
+                startIcon={transactionsLoading ? <CircularProgress size={18} /> : <RefreshIcon />}
+                onClick={fetchFiatTransactions}
+                disabled={transactionsLoading}
+              >
+                {transactionsLoading ? 'Actualizando...' : 'Refresh'}
+              </Button>
             </Box>
             <TableContainer>
               <Table>
@@ -506,42 +528,22 @@ const Dashboard = () => {
                   {transactions.map((tx) => (
                     <TableRow key={tx.id}>
                       <TableCell>
-                        {new Date(tx.timestamp).toLocaleString()}
+                        {tx.transactionDate ? new Date(tx.transactionDate).toLocaleString() : ''}
                       </TableCell>
                       <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {getTypeIcon(tx.type)}
-                          {tx.type.charAt(0).toUpperCase() + tx.type.slice(1)}
-                        </Box>
+                        {tx.concept}
                       </TableCell>
-                      <TableCell>{tx.description}</TableCell>
+                      <TableCell>
+                        {tx.owner?.name || ''}
+                      </TableCell>
                       <TableCell align="right">
-                        <Typography
-                          color={tx.type === 'payment' ? 'error' : 'success'}
-                          fontWeight="bold"
-                        >
-                          {tx.type === 'payment' ? '-' : '+'}{tx.amount} TKN
-                        </Typography>
+                        {tx.amount} {tx.currency}
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={tx.status}
-                          color={tx.status === 'success' ? 'success' : 'warning'}
-                          size="small"
-                        />
+                        {tx.status}
                       </TableCell>
                       <TableCell>
-                        <Link
-                          href={`https://sepolia.etherscan.io/tx/${tx.hash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          sx={{ 
-                            textDecoration: 'none',
-                            '&:hover': { textDecoration: 'underline' }
-                          }}
-                        >
-                          {tx.hash}
-                        </Link>
+                        {tx.id}
                       </TableCell>
                     </TableRow>
                   ))}
