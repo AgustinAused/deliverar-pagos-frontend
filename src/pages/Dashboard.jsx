@@ -121,7 +121,8 @@ const Dashboard = () => {
       if (user?.role?.toLowerCase() === 'core') {
         const response = await axios.get(`/api/owners/${OWNER_ID}/balances`, {
           headers: {
-            Authorization: `Bearer ${user.accessToken}`
+            Authorization: `Bearer ${user.accessToken}`,
+            'Cache-Control': 'no-cache'
           }
         });
         setBalance(response.data.cryptoBalance);
@@ -255,25 +256,6 @@ const Dashboard = () => {
     if (user?.accessToken) {
       fetchFiatTransactions();
     }
-  }, [user]);
-
-  useEffect(() => {
-    const fetchOwnerBalance = async () => {
-      if (user?.role?.toLowerCase() === 'core') {
-        try {
-          const response = await axios.get(`/api/owners/${OWNER_ID}/balances`, {
-            headers: {
-              Authorization: `Bearer ${user.accessToken}`
-            }
-          });
-          setBalance(response.data.cryptoBalance);
-          setMoneyBalance(response.data.fiatBalance);
-        } catch (err) {
-          console.error('Error fetching owner balance:', err);
-        }
-      }
-    };
-    fetchOwnerBalance();
   }, [user]);
 
   useEffect(() => {
