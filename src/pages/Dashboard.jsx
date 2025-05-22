@@ -32,7 +32,8 @@ import {
 } from '@mui/icons-material';
 import web3Service from '../services/web3Service';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import axios from 'axios';
+
 
 const DashboardContainer = styled(Box)`
   padding: 2rem;
@@ -90,6 +91,27 @@ const TransactionHash = styled(Typography)`
   font-size: 0.85rem;
 `;
 
+const API_URL = process.env.REACT_APP_API_URL;
+
+// Create axios instance with base URL
+const api = axios.create({
+  baseURL: API_URL,
+});
+
+// Add request interceptor to include auth token
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 const Dashboard = () => {
   // Balance States
   const [balance, setBalance] = useState(0);
@@ -139,6 +161,7 @@ const Dashboard = () => {
     }
   };
 
+  
   const handleDeposit = async () => {
     if (!depositAmount || isNaN(Number(depositAmount)) || Number(depositAmount) <= 0) {
       setError('Por favor ingresa un monto válido');
