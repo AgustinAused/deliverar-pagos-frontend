@@ -39,6 +39,7 @@ import {
 import web3Service from '../services/web3Service';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import delivercoinImg from '../images/dc.png';
 
 const StyledCard = styled(Card)`
   padding: 2rem;
@@ -56,11 +57,13 @@ const KPICard = styled(Paper)`
 const IconWrapper = styled(Box)`
   background-color: #e3f2fd;
   color: #1976d2;
-  padding: 1rem;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 `;
 
 const SearchContainer = styled(Box)`
@@ -188,6 +191,7 @@ const AdminDashboard = () => {
     try {
       await api.post(
         '/api/delivercoin/mint',
+
         { amount: parseFloat(tokenAmount) },
         {
           headers: {
@@ -273,7 +277,7 @@ const AdminDashboard = () => {
         <Grid item xs={12} md={4}>
           <KPICard elevation={2} sx={{ minWidth: 260, width: '90%', mr: { md: 2, xs: 0 } }}>
             <IconWrapper>
-              <TrendingUp />
+              <img src={delivercoinImg} alt="DeliverCoin" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: '50%' }} />
             </IconWrapper>
             <Box>
               <Typography variant="subtitle2" color="text.secondary">
