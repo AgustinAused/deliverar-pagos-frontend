@@ -68,12 +68,15 @@ const TokenSymbol = styled.span`
 `;
 
 const ActionCard = styled(Paper)`
-  padding: 1.5rem;
+  padding: 0.75rem;
   margin: 1rem 0;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
   background-color: #f8f9fa;
+  min-height: 120px;
+  height: 100%;
+  justify-content: flex-start;
 `;
 
 const IconBox = styled(Box)`
@@ -135,6 +138,11 @@ const Dashboard = () => {
   const [payError, setPayError] = useState('');
   const [paySuccess, setPaySuccess] = useState('');
 
+  // Add state for sell action
+  const [sellAmount, setSellAmount] = useState('');
+  const [sellError, setSellError] = useState('');
+  const [sellSuccess, setSellSuccess] = useState('');
+
   const fetchBalance = async () => {
     setBalanceLoading(true);
     setMoneyBalanceLoading(true);
@@ -190,7 +198,7 @@ const Dashboard = () => {
 
   const handleBuyTokens = async () => {
     if (!tokenAmount || isNaN(Number(tokenAmount)) || Number(tokenAmount) <= 0) {
-      setBuyError('Por favor ingresa una cantidad válida de tokens');
+      setBuyError('Por favor ingresa una cantidad válida de DeliveryCoins');
       setBuySuccess('');
       return;
     }
@@ -211,7 +219,7 @@ const Dashboard = () => {
         { headers: { Authorization: `Bearer ${user.accessToken}` } }
       );
 
-      setBuySuccess(`Compra de ${tokenAmount} tokens procesada exitosamente`);
+      setBuySuccess(`Compra de ${tokenAmount} DeliveryCoins procesada exitosamente`);
       setTokenAmount('');
       await fetchBalance(); // Refresh balance after purchase
       await fetchAllTransactions();
@@ -224,7 +232,7 @@ const Dashboard = () => {
 
   const handlePayment = async () => {
     if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) {
-      setPayError('Por favor ingresa una cantidad válida de tokens');
+      setPayError('Por favor ingresa una cantidad válida de DeliveryCoins');
       setPaySuccess('');
       return;
     }
@@ -271,6 +279,39 @@ const Dashboard = () => {
           'Error procesando el pago'
         );
       }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSell = async () => {
+    if (!sellAmount || isNaN(Number(sellAmount)) || Number(sellAmount) <= 0) {
+      setSellError('Por favor ingresa una cantidad válida de DeliveryCoins');
+      setSellSuccess('');
+      return;
+    }
+    setLoading(true);
+    setSellError('');
+    setSellSuccess('');
+    try {
+      // Fetch owner email
+      const ownerRes = await api.get(
+        `/api/owners/${OWNER_ID}`,
+        { headers: { Authorization: `Bearer ${user.accessToken}` } }
+      );
+      const ownerEmail = ownerRes.data.email;
+      // Call sell endpoint
+      await api.post(
+        '/api/delivercoin/sell',
+        { email: ownerEmail, amount: parseFloat(sellAmount) },
+        { headers: { Authorization: `Bearer ${user.accessToken}` } }
+      );
+      setSellSuccess(`Venta de ${sellAmount} DeliveryCoins procesada exitosamente`);
+      setSellAmount('');
+      await fetchBalance();
+      await fetchAllTransactions();
+    } catch (err) {
+      setSellError(err.response?.data?.message || 'Revisar datos ingresados');
     } finally {
       setLoading(false);
     }
@@ -399,7 +440,7 @@ const Dashboard = () => {
             <Grid item xs={12} md={6}>
               <BalanceCard elevation={2}>
                 <Typography variant="h6" sx={{ mb: 1 }}>
-                  Token Balance
+                  DeliveryCoins Balance
                 </Typography>
                 <Box sx={{ position: 'relative', minHeight: '90px' }}>
                   {balanceLoading ? (
@@ -417,7 +458,7 @@ const Dashboard = () => {
                     <>
                       <TokenAmount>
                         {balance}
-                        <TokenSymbol>TKN</TokenSymbol>
+                        <TokenSymbol>DC</TokenSymbol>
                       </TokenAmount>
                       <Typography variant="body2" color="text.secondary">
                         Last sync: {lastSync.toLocaleTimeString()}
@@ -432,9 +473,9 @@ const Dashboard = () => {
 
         {/* Payment Actions Section */}
         <Grid item xs={12}>
-          <Grid container spacing={3}>
+          <Grid container spacing={3} alignItems="stretch">
             {/* Ingresar Dinero */}
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} sm={6} md={3}>
               <ActionCard elevation={2}>
                 <IconBox>
                   <AccountBalanceIcon color="primary" />
@@ -454,6 +495,7 @@ const Dashboard = () => {
                     InputProps={{
                       startAdornment: <Typography sx={{ mr: 1 }}>$</Typography>
                     }}
+                    sx={{ mb: 2 }}
                   />
                   <Button
                     variant="contained"
@@ -468,18 +510,18 @@ const Dashboard = () => {
               </ActionCard>
             </Grid>
 
-            {/* Comprar Tokens */}
-            <Grid item xs={12} md={4}>
+            {/* Comprar DeliveryCoins */}
+            <Grid item xs={12} sm={6} md={3}>
               <ActionCard elevation={2}>
                 <IconBox>
                   <ShoppingCartIcon color="primary" />
                   <Typography variant="h6">
-                    Comprar Tokens
+                    Comprar DeliveryCoins
                   </Typography>
                 </IconBox>
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   <TextField
-                    label="Cantidad de tokens"
+                    label="Cantidad"
                     value={tokenAmount}
                     onChange={(e) => setTokenAmount(e.target.value)}
                     type="number"
@@ -487,8 +529,9 @@ const Dashboard = () => {
                     size="small"
                     placeholder="0"
                     InputProps={{
-                      endAdornment: <Typography sx={{ ml: 1 }}>TKN</Typography>
+                      endAdornment: <Typography sx={{ ml: 1 }}>DC</Typography>
                     }}
+                    sx={{ mb: 2 }}
                   />
                   <Button
                     variant="contained"
@@ -503,18 +546,55 @@ const Dashboard = () => {
               </ActionCard>
             </Grid>
 
-            {/* Pagar con Tokens */}
-            <Grid item xs={12} md={4}>
+            {/* Vender DeliveryCoins */}
+            <Grid item xs={12} sm={6} md={3}>
+              <ActionCard elevation={2}>
+                <IconBox>
+                  <ShoppingCartIcon color="primary" />
+                  <Typography variant="h6">
+                    Vender DeliveryCoins
+                  </Typography>
+                </IconBox>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <TextField
+                    label="Cantidad"
+                    value={sellAmount}
+                    onChange={(e) => setSellAmount(e.target.value)}
+                    type="number"
+                    fullWidth
+                    size="small"
+                    placeholder="0"
+                    InputProps={{
+                      endAdornment: <Typography sx={{ ml: 1 }}>DC</Typography>
+                    }}
+                    sx={{ mb: 2 }}
+                  />
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handleSell}
+                    disabled={loading}
+                  >
+                    {loading ? <CircularProgress size={24} /> : 'VENDER'}
+                  </Button>
+                </Box>
+                {sellSuccess && <Alert severity="success" sx={{ mb: 2 }}>{sellSuccess}</Alert>}
+                {sellError && <Alert severity="error" sx={{ mb: 2 }}>{sellError}</Alert>}
+              </ActionCard>
+            </Grid>
+
+            {/* Pagar con DeliveryCoins */}
+            <Grid item xs={12} sm={6} md={3}>
               <ActionCard elevation={2}>
                 <IconBox>
                   <WalletIcon color="primary" />
                   <Typography variant="h6">
-                    Pagar con Tokens
+                    Pagar con DeliveryCoins
                   </Typography>
                 </IconBox>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField
-                    label="Cantidad de tokens"
+                    label="Cantidad de DeliveryCoins"
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     type="number"
@@ -522,10 +602,11 @@ const Dashboard = () => {
                     size="small"
                     placeholder="0"
                     InputProps={{
-                      endAdornment: <Typography sx={{ ml: 1 }}>TKN</Typography>
+                      endAdornment: <Typography sx={{ ml: 1 }}>DC</Typography>
                     }}
                     error={isNegativeAmount}
                     helperText={isNegativeAmount ? 'Ingresar número válido' : ''}
+                    sx={{ mb: 2 }}
                   />
                   <TextField
                     label="Email destino"
