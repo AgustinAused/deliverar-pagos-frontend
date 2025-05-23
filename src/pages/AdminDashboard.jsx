@@ -17,7 +17,14 @@ import {
   Grid,
   Alert,
   CircularProgress,
-  TablePagination
+  TablePagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Link,
+  Tooltip,
+  IconButton
 } from '@mui/material';
 import {
   TrendingUp,
@@ -26,7 +33,8 @@ import {
   Download as DownloadIcon,
   Search as SearchIcon,
   Add as AddIcon,
-  Remove as RemoveIcon
+  Remove as RemoveIcon,
+  FilterList as FilterIcon
 } from '@mui/icons-material';
 import web3Service from '../services/web3Service';
 import axios from 'axios';
@@ -82,6 +90,7 @@ const api = axios.create({
 
 const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [dateSearchQuery, setDateSearchQuery] = useState('');
   const [tokenAmount, setTokenAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -96,6 +105,7 @@ const AdminDashboard = () => {
     totalOfOwners: 0,
     totalOfTransactions: 0
   });
+  const [statusFilter, setStatusFilter] = useState('all');
 
   // Move fetchKpis outside useEffect so it can be called from handleMint
   const fetchKpis = async () => {
@@ -167,7 +177,7 @@ const AdminDashboard = () => {
 
   const handleMint = async () => {
     if (!tokenAmount || isNaN(Number(tokenAmount)) || Number(tokenAmount) <= 0) {
-      setError('Please enter a valid amount');
+      setError('Ingrese una cantidad valida ');
       return;
     }
 
@@ -225,20 +235,33 @@ const AdminDashboard = () => {
     }
   };
 
-  // Filter transactions client-side based on searchQuery
-  const filteredTransactions = transactions.filter((tx) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      (tx.originOwner?.email?.toLowerCase() || '').includes(query) ||
-      (tx.destinationOwner?.email?.toLowerCase() || '').includes(query) ||
-      (tx.from?.toLowerCase() || '').includes(query) ||
-      (tx.to?.toLowerCase() || '').includes(query) ||
-      (tx.concept?.toLowerCase() || '').includes(query) ||
-      (tx.type?.toLowerCase() || '').includes(query) ||
-      (tx.status?.toLowerCase() || '').includes(query) ||
-      (tx.id?.toLowerCase() || '').includes(query)
-    );
-  });
+  // Filtering logic
+  const filterTransactions = () => {
+    return transactions.filter(tx => {
+      // Format the date to a readable string for searching
+      const txDate = tx.transactionDate || tx.createdAt || tx.timestamp;
+      let formattedDate = '';
+      if (txDate) {
+        try {
+          formattedDate = new Date(txDate).toLocaleString();
+        } catch (e) {
+          formattedDate = String(txDate);
+        }
+      }
+      const matchesSearch =
+        (tx.originOwner?.email?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.destinationOwner?.email?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.concept?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.type?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.status?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+        (tx.amount !== undefined && tx.amount !== null && tx.amount.toString().includes(searchQuery));
+      const matchesDate = !dateSearchQuery || formattedDate.toLowerCase().includes(dateSearchQuery.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || (tx.status || '').toLowerCase() === statusFilter;
+      return matchesSearch && matchesDate && matchesStatus;
+    });
+  };
+
+  const filteredTransactions = filterTransactions();
 
   return (
     <StyledCard>
@@ -248,29 +271,28 @@ const AdminDashboard = () => {
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} md={4}>
-          <KPICard elevation={2}>
+          <KPICard elevation={2} sx={{ minWidth: 260, width: '90%', mr: { md: 2, xs: 0 } }}>
             <IconWrapper>
               <TrendingUp />
             </IconWrapper>
             <Box>
               <Typography variant="subtitle2" color="text.secondary">
-                Total Volume
+                Volumen Total
               </Typography>
               <Typography variant="h4">
-                {kpiData.totalOfCryptos} TKN
+                {kpiData.totalOfCryptos} DC
               </Typography>
             </Box>
           </KPICard>
         </Grid>
-
         <Grid item xs={12} md={4}>
-          <KPICard elevation={2}>
+          <KPICard elevation={2} sx={{ minWidth: 260, width: '90%', mr: { md: 2, xs: 0 } }}>
             <IconWrapper>
               <Group />
             </IconWrapper>
             <Box>
               <Typography variant="subtitle2" color="text.secondary">
-                Active Users
+                Owners Activos
               </Typography>
               <Typography variant="h4">
                 {kpiData.totalOfOwners}
@@ -278,15 +300,14 @@ const AdminDashboard = () => {
             </Box>
           </KPICard>
         </Grid>
-
         <Grid item xs={12} md={4}>
-          <KPICard elevation={2}>
+          <KPICard elevation={2} sx={{ minWidth: 260, width: '90%' }}>
             <IconWrapper>
               <AccountBalance />
             </IconWrapper>
             <Box>
               <Typography variant="subtitle2" color="text.secondary">
-                Total Transactions
+                Transacciones Totales
               </Typography>
               <Typography variant="h4">
                 {kpiData.totalOfTransactions}
@@ -298,15 +319,15 @@ const AdminDashboard = () => {
 
       <TokenActionCard elevation={2}>
         <Typography variant="h6" gutterBottom>
-          Token Management
+          Manejo de Tokens
         </Typography>
         <ActionContainer>
           <TextField
-            label="Token Amount"
+            label="Cantidad de tokens"
             type="number"
             value={tokenAmount}
             onChange={(e) => setTokenAmount(e.target.value)}
-            placeholder="Enter amount"
+            placeholder="Ingrese la cantidad"
             fullWidth
           />
           <Button
@@ -315,6 +336,7 @@ const AdminDashboard = () => {
             onClick={handleMint}
             disabled={loading}
             startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
+            sx={{ height: '56px', minWidth: '120px', fontWeight: 500, fontSize: '1rem', boxSizing: 'border-box' }}
           >
             Mint
           </Button>
@@ -324,6 +346,7 @@ const AdminDashboard = () => {
             onClick={handleBurn}
             disabled={loading}
             startIcon={loading ? <CircularProgress size={20} /> : <RemoveIcon />}
+            sx={{ height: '56px', minWidth: '120px', fontWeight: 500, fontSize: '1rem', boxSizing: 'border-box' }}
           >
             Burn
           </Button>
@@ -339,33 +362,70 @@ const AdminDashboard = () => {
         ) : null}
       </TokenActionCard>
 
-      <SearchContainer>
-        <TextField
-          fullWidth
-          label="Search by address or transaction hash"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="0x..."
-        />
-        <Button
-          variant="outlined"
-          startIcon={<DownloadIcon />}
-          onClick={handleExport}
-        >
-          Export
-        </Button>
-      </SearchContainer>
+      <Paper sx={{ p: 3, mb: 3 }} elevation={2}>
+        <Grid container spacing={3} alignItems="center">
+          <Grid item xs={12} md sx={{ flexGrow: 1 }}>
+            <TextField
+              fullWidth
+              label="Buscar"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar por email, cantidad, movimiento, estado..."
+              InputProps={{
+                endAdornment: <SearchIcon color="action" />
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              label="Buscar por fecha"
+              value={dateSearchQuery}
+              onChange={(e) => setDateSearchQuery(e.target.value)}
+              placeholder=""
+              InputProps={{
+                endAdornment: <SearchIcon color="action" />
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} md="auto">
+            <FormControl fullWidth>
+              <InputLabel>Estado</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Estado"
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <MenuItem value="all">Todos</MenuItem>
+                <MenuItem value="success">Exitoso</MenuItem>
+                <MenuItem value="pending">Pendiente</MenuItem>
+                <MenuItem value="failed">Fallido</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md="auto" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            <Button
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              onClick={handleExport}
+              sx={{ height: '56px', minWidth: '120px', fontWeight: 500, fontSize: '1rem', boxSizing: 'border-box' }}
+            >
+              Exportar
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
 
       <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
         <Table stickyHeader>
           <TableHead>
             <TableRow>
-              <TableCell>Timestamp</TableCell>
-              <TableCell>From</TableCell>
-              <TableCell>To</TableCell>
-              <TableCell>Amount</TableCell>
-              <TableCell>Type</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell>Fecha</TableCell>
+              <TableCell>Origen</TableCell>
+              <TableCell>Destino</TableCell>
+              <TableCell>Cantidad</TableCell>
+              <TableCell>Movimiento</TableCell>
+              <TableCell>Estado</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
