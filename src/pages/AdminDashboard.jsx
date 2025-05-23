@@ -323,11 +323,11 @@ const AdminDashboard = () => {
 
       <TokenActionCard elevation={2}>
         <Typography variant="h6" gutterBottom>
-          Manejo de Tokens
+          Manejo de DeliveryCoins
         </Typography>
         <ActionContainer>
           <TextField
-            label="Cantidad de tokens"
+            label="Cantidad de DeliveryCoins"
             type="number"
             value={tokenAmount}
             onChange={(e) => setTokenAmount(e.target.value)}
