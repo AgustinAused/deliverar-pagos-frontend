@@ -111,7 +111,7 @@ const AdminDashboard = () => {
   });
   const [statusFilter, setStatusFilter] = useState('all');
   const [walletsPage, setWalletsPage] = useState(0);
-  const [walletsRowsPerPage, setWalletsRowsPerPage] = useState(6);
+  const [walletsRowsPerPage, setWalletsRowsPerPage] = useState(100);
   const [wallets, setWallets] = useState([]);
   const [walletsLoading, setWalletsLoading] = useState(false);
   const [walletsError, setWalletsError] = useState('');
@@ -156,64 +156,30 @@ const AdminDashboard = () => {
     }
   };
 
-  // Fetch wallets from /api/owners with pagination
-  const fetchWallets = async (page = 0, limit = 6) => {
+  // Fetch wallets from /api/owners con paginación correcta
+  const fetchWallets = async (page = 0, size = 10) => {
     setWalletsLoading(true);
     setWalletsError('');
     try {
-      // Try different pagination parameter combinations
-      const params = {
-        page: page + 1, // API might use 1-based pagination
-        limit: limit
-      };
-      
-      console.log('Fetching wallets with pagination params:', params);
-      
       const response = await api.get('/api/owners', {
         headers: {
           Authorization: `Bearer ${user.accessToken}`
         },
-        params: params
+        params: {
+          page: page,      // 0-based
+          size: size       // cantidad por página
+          // Puedes agregar fieldBy y direction si quieres ordenar
+        }
       });
-      console.log('Wallets API response:', response);
-      
-      // Handle different possible response structures
       const walletsData = response.data.ownersList || response.data.owners || response.data || [];
       const total = response.data.total || response.data.totalCount || response.data.count || walletsData.length;
-      
-      console.log('Processed wallets data:', { walletsData, total });
-      
       setWallets(Array.isArray(walletsData) ? walletsData : []);
       setTotalWallets(total);
+      setWalletsError('');
     } catch (err) {
-      console.error('Error fetching wallets:', err);
-      
-      // If pagination fails, try without pagination parameters
-      if (err.response?.status === 400 || err.response?.status === 422) {
-        console.log('Pagination not supported, trying without pagination parameters');
-        try {
-          const response = await api.get('/api/owners', {
-            headers: {
-              Authorization: `Bearer ${user.accessToken}`
-            }
-          });
-          console.log('Wallets API response (no pagination):', response);
-          
-          const walletsData = response.data.ownersList || response.data.owners || response.data || [];
-          setWallets(Array.isArray(walletsData) ? walletsData : []);
-          setTotalWallets(walletsData.length);
-          setWalletsError('');
-        } catch (fallbackErr) {
-          console.error('Fallback request also failed:', fallbackErr);
-          setWallets([]);
-          setWalletsError('Error fetching wallets');
-          setTotalWallets(0);
-        }
-      } else {
-        setWallets([]);
-        setWalletsError('Error fetching wallets');
-        setTotalWallets(0);
-      }
+      setWallets([]);
+      setWalletsError('Error fetching wallets');
+      setTotalWallets(0);
     } finally {
       setWalletsLoading(false);
     }
@@ -262,6 +228,21 @@ const AdminDashboard = () => {
     const newRowsPerPage = parseInt(event.target.value, 10);
     setWalletsRowsPerPage(newRowsPerPage);
     setWalletsPage(0); // Reset to first page when changing rows per page
+  };
+
+  const testFetchAllWallets = async () => {
+    console.log('Testing fetch all wallets without pagination...');
+    try {
+      const response = await api.get('/api/owners', {
+        headers: {
+          Authorization: `Bearer ${user.accessToken}`
+        }
+      });
+      console.log('Test response (all wallets):', response);
+      console.log('Total wallets found:', response.data?.ownersList?.length || response.data?.owners?.length || response.data?.length || 0);
+    } catch (err) {
+      console.error('Test failed:', err);
+    }
   };
 
   const handleMint = async () => {
@@ -613,7 +594,7 @@ const AdminDashboard = () => {
         onPageChange={handleWalletsPageChange}
         rowsPerPage={walletsRowsPerPage}
         onRowsPerPageChange={handleWalletsRowsPerPageChange}
-        rowsPerPageOptions={[6, 12, 18, 50]}
+        rowsPerPageOptions={[6, 12, 18, 50, 100]}
       />
     </StyledCard>
   );
