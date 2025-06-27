@@ -40,6 +40,7 @@ import web3Service from '../services/web3Service';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import delivercoinImg from '../images/dc.png';
+import api from '../services/api';
 
 const StyledCard = styled(Card)`
   padding: 2rem;
@@ -87,7 +88,7 @@ const ActionContainer = styled(Box)`
 const API_URL = process.env.REACT_APP_API_URL;
 
 // Create axios instance with base URL
-const api = axios.create({
+const apiInstance = axios.create({
   baseURL: API_URL,
 });
 
@@ -109,11 +110,16 @@ const AdminDashboard = () => {
     totalOfTransactions: 0
   });
   const [statusFilter, setStatusFilter] = useState('all');
+  const [walletsPage, setWalletsPage] = useState(0);
+  const [walletsRowsPerPage, setWalletsRowsPerPage] = useState(6);
+  const [wallets, setWallets] = useState([]);
+  const [walletsLoading, setWalletsLoading] = useState(false);
+  const [walletsError, setWalletsError] = useState('');
 
   // Move fetchKpis outside useEffect so it can be called from handleMint
   const fetchKpis = async () => {
     try {
-      const response = await api.get('/api/delivercoin', {
+      const response = await apiInstance.get('/api/delivercoin', {
         headers: {
           Authorization: `Bearer ${user.accessToken}`
         }
@@ -149,6 +155,26 @@ const AdminDashboard = () => {
     }
   };
 
+  // Fetch wallets from /api/owners
+  const fetchWallets = async () => {
+    setWalletsLoading(true);
+    setWalletsError('');
+    try {
+      const response = await api.get('/api/owners', {
+        headers: {
+          Authorization: `Bearer ${user.accessToken}`
+        }
+      });
+      console.log('Wallets API response:', response);
+      setWallets(Array.isArray(response.data.ownersList) ? response.data.ownersList : []);
+    } catch (err) {
+      setWallets([]);
+      setWalletsError('Error fetching wallets');
+    } finally {
+      setWalletsLoading(false);
+    }
+  };
+
   // Fetch transactions on mount and when user changes
   useEffect(() => {
     if (user?.accessToken) {
@@ -159,6 +185,12 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (user?.accessToken) {
       fetchKpis();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.accessToken) {
+      fetchWallets();
     }
   }, [user]);
 
@@ -189,7 +221,7 @@ const AdminDashboard = () => {
     setSuccess('');
 
     try {
-      await api.post(
+      await apiInstance.post(
         '/api/delivercoin/mint',
 
         { amount: parseFloat(tokenAmount) },
@@ -220,7 +252,7 @@ const AdminDashboard = () => {
     setSuccess('');
 
     try {
-      await api.post(
+      await apiInstance.post(
         '/api/delivercoin/burn',
         { amount: parseFloat(tokenAmount) },
         {
@@ -470,6 +502,65 @@ const AdminDashboard = () => {
         onRowsPerPageChange={e => {
           setRowsPerPage(parseInt(e.target.value, 10));
           setPage(0);
+        }}
+        rowsPerPageOptions={[6, 12, 18, 50]}
+      />
+
+      {/* Wallets Table */}
+      <Typography variant="h6" component="h2" sx={{ mt: 6, mb: 2 }}>
+        Wallets
+      </Typography>
+      <TableContainer component={Paper} sx={{ maxHeight: 400, maxWidth: 1200, margin: '0 auto', mb: 4 }}>
+        <Table stickyHeader>
+          <TableHead>
+            <TableRow>
+              <TableCell>Owner Email</TableCell>
+              <TableCell>Tipo Usuario</TableCell>
+              <TableCell>Saldo</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {walletsLoading ? (
+              <TableRow>
+                <TableCell colSpan={3} align="center">
+                  <CircularProgress size={24} />
+                </TableCell>
+              </TableRow>
+            ) : walletsError ? (
+              <TableRow>
+                <TableCell colSpan={3} align="center">
+                  {walletsError}
+                </TableCell>
+              </TableRow>
+            ) : wallets.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={3} align="center">
+                  No wallets found
+                </TableCell>
+              </TableRow>
+            ) : (
+              wallets.slice(walletsPage * walletsRowsPerPage, walletsPage * walletsRowsPerPage + walletsRowsPerPage).map((wallet) => (
+                <TableRow key={wallet.id || wallet.email}>
+                  <TableCell>{wallet.email}</TableCell>
+                  <TableCell>
+                    <Chip label={wallet.ownerType} color={wallet.ownerType === 'cliente' ? 'primary' : wallet.ownerType === 'tenant' ? 'secondary' : 'success'} variant="outlined" />
+                  </TableCell>
+                  <TableCell>{wallet.cryptoBalance}</TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <TablePagination
+        component="div"
+        count={wallets.length}
+        page={walletsPage}
+        onPageChange={(e, newPage) => setWalletsPage(newPage)}
+        rowsPerPage={walletsRowsPerPage}
+        onRowsPerPageChange={e => {
+          setWalletsRowsPerPage(parseInt(e.target.value, 10));
+          setWalletsPage(0);
         }}
         rowsPerPageOptions={[6, 12, 18, 50]}
       />
