@@ -4,6 +4,7 @@ const API_URL = process.env.REACT_APP_API_URL || 'https://api.blockchain.deliver
 const AUTH_LOGIN = '/api/auth/login';
 const AUTH_LOGOUT = '/api/auth/logout';
 const AUTH_REFRESH = '/api/auth/refresh';
+const LDAP_LOGIN = '/api/auth/ldap-login';
 
 // Configure axios defaults
 axios.defaults.headers.common['Content-Type'] = 'application/json';
@@ -20,7 +21,7 @@ const api = axios.create({
 
 const authService = {
   login: async (email, password) => {
-    const loginUrl = `${AUTH_LOGIN}`;
+    const loginUrl = `${LDAP_LOGIN}`;
     console.log('Attempting login with:', {
       url: loginUrl,
       email: email,
