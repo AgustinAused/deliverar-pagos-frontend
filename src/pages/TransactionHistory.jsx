@@ -76,29 +76,19 @@ const TransactionHistory = () => {
   const fetchTransactions = async () => {
     setLoading(true);
     try {
-      // Use fixed ownerId
-      const ownerId = 'e564456a-2590-4ec8-bcb7-77bcd9dba05b';
-      const [allTxRes, fiatTxRes] = await Promise.all([
-        api.get('/api/transactions', {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        }),
-        api.get(`/api/owners/${ownerId}/transactions/fiat`, {
-          headers: {
-            Authorization: `Bearer ${user.accessToken}`
-          }
-        })
-      ]);
-      const allTx = Array.isArray(allTxRes.data.transactions) ? allTxRes.data.transactions : [];
-      const fiatTx = Array.isArray(fiatTxRes.data.transactions) ? fiatTxRes.data.transactions : [];
+      const response = await api.get('/api/transactions', {
+        headers: {
+          Authorization: `Bearer ${user.accessToken}`
+        }
+      });
+      const allTx = Array.isArray(response.data.transactions) ? response.data.transactions : [];
       // Sort by date descending (latest to earliest)
-      const combined = [...allTx, ...fiatTx].sort((a, b) => {
+      const sorted = allTx.sort((a, b) => {
         const dateA = new Date(a.transactionDate || a.createdAt || a.timestamp);
         const dateB = new Date(b.transactionDate || b.createdAt || b.timestamp);
         return dateB - dateA;
       });
-      setTransactions(combined);
+      setTransactions(sorted);
     } catch (err) {
       setTransactions([]);
       setError('Error fetching transactions');
