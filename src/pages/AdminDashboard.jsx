@@ -115,6 +115,7 @@ const AdminDashboard = () => {
   const [wallets, setWallets] = useState([]);
   const [walletsLoading, setWalletsLoading] = useState(false);
   const [walletsError, setWalletsError] = useState('');
+  const [totalWallets, setTotalWallets] = useState(0);
 
   // Move fetchKpis outside useEffect so it can be called from handleMint
   const fetchKpis = async () => {
@@ -155,21 +156,64 @@ const AdminDashboard = () => {
     }
   };
 
-  // Fetch wallets from /api/owners
-  const fetchWallets = async () => {
+  // Fetch wallets from /api/owners with pagination
+  const fetchWallets = async (page = 0, limit = 6) => {
     setWalletsLoading(true);
     setWalletsError('');
     try {
+      // Try different pagination parameter combinations
+      const params = {
+        page: page + 1, // API might use 1-based pagination
+        limit: limit
+      };
+      
+      console.log('Fetching wallets with pagination params:', params);
+      
       const response = await api.get('/api/owners', {
         headers: {
           Authorization: `Bearer ${user.accessToken}`
-        }
+        },
+        params: params
       });
       console.log('Wallets API response:', response);
-      setWallets(Array.isArray(response.data.ownersList) ? response.data.ownersList : []);
+      
+      // Handle different possible response structures
+      const walletsData = response.data.ownersList || response.data.owners || response.data || [];
+      const total = response.data.total || response.data.totalCount || response.data.count || walletsData.length;
+      
+      console.log('Processed wallets data:', { walletsData, total });
+      
+      setWallets(Array.isArray(walletsData) ? walletsData : []);
+      setTotalWallets(total);
     } catch (err) {
-      setWallets([]);
-      setWalletsError('Error fetching wallets');
+      console.error('Error fetching wallets:', err);
+      
+      // If pagination fails, try without pagination parameters
+      if (err.response?.status === 400 || err.response?.status === 422) {
+        console.log('Pagination not supported, trying without pagination parameters');
+        try {
+          const response = await api.get('/api/owners', {
+            headers: {
+              Authorization: `Bearer ${user.accessToken}`
+            }
+          });
+          console.log('Wallets API response (no pagination):', response);
+          
+          const walletsData = response.data.ownersList || response.data.owners || response.data || [];
+          setWallets(Array.isArray(walletsData) ? walletsData : []);
+          setTotalWallets(walletsData.length);
+          setWalletsError('');
+        } catch (fallbackErr) {
+          console.error('Fallback request also failed:', fallbackErr);
+          setWallets([]);
+          setWalletsError('Error fetching wallets');
+          setTotalWallets(0);
+        }
+      } else {
+        setWallets([]);
+        setWalletsError('Error fetching wallets');
+        setTotalWallets(0);
+      }
     } finally {
       setWalletsLoading(false);
     }
@@ -190,9 +234,9 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (user?.accessToken) {
-      fetchWallets();
+      fetchWallets(walletsPage, walletsRowsPerPage);
     }
-  }, [user]);
+  }, [user, walletsPage, walletsRowsPerPage]);
 
   const handleExport = () => {
     // Export filtered transactions as JSON
@@ -208,6 +252,16 @@ const AdminDashboard = () => {
   const handleSearch = () => {
     // Implementation for searching transactions
     console.log('Searching:', searchQuery);
+  };
+
+  const handleWalletsPageChange = (event, newPage) => {
+    setWalletsPage(newPage);
+  };
+
+  const handleWalletsRowsPerPageChange = (event) => {
+    const newRowsPerPage = parseInt(event.target.value, 10);
+    setWalletsRowsPerPage(newRowsPerPage);
+    setWalletsPage(0); // Reset to first page when changing rows per page
   };
 
   const handleMint = async () => {
@@ -539,7 +593,7 @@ const AdminDashboard = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              wallets.slice(walletsPage * walletsRowsPerPage, walletsPage * walletsRowsPerPage + walletsRowsPerPage).map((wallet) => (
+              wallets.map((wallet) => (
                 <TableRow key={wallet.id || wallet.email}>
                   <TableCell>{wallet.email}</TableCell>
                   <TableCell>
@@ -554,14 +608,11 @@ const AdminDashboard = () => {
       </TableContainer>
       <TablePagination
         component="div"
-        count={wallets.length}
+        count={totalWallets}
         page={walletsPage}
-        onPageChange={(e, newPage) => setWalletsPage(newPage)}
+        onPageChange={handleWalletsPageChange}
         rowsPerPage={walletsRowsPerPage}
-        onRowsPerPageChange={e => {
-          setWalletsRowsPerPage(parseInt(e.target.value, 10));
-          setWalletsPage(0);
-        }}
+        onRowsPerPageChange={handleWalletsRowsPerPageChange}
         rowsPerPageOptions={[6, 12, 18, 50]}
       />
     </StyledCard>
